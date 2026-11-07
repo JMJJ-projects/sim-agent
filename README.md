@@ -153,6 +153,27 @@ or `make bench` for the whole plan in [data/bench_plan.json](data/bench_plan.jso
 - The reasoning model's TTFT and tokens/s include hidden reasoning tokens and are not
   comparable with the local models.
 
+## How this was built
+
+This project was built with AI coding agents, and the history says so: every commit is
+co-authored by Claude. My role was to define the project, steer it and check it.
+
+- **Scope.** I chose the project from what agentic-AI internship postings ask for (tool use,
+  MCP, code that actually runs, local models, evaluation against a baseline) and from my own
+  constraint: a laptop GPU with 4 GB of VRAM.
+- **Spec and rules.** [SPEC.md](SPEC.md) lists numbered requirements that the tests reference,
+  [PLAN.md](PLAN.md) the phases and commits, and [CLAUDE.md](CLAUDE.md) the rules the coding
+  agent had to follow: never run model output outside the sandbox, never invent data or
+  results, and every commit passes lint and tests.
+- **Checkpoints.** The agent had to stop twice. Before any model-written code ran, the sandbox
+  was reviewed and its isolation tests were run on my machine with Docker. That review found a
+  policy bypass (dangerous modules re-exported by allowed ones, such as `matplotlib.subprocess`),
+  now fixed and tested. Before the benchmark, I chose what to measure: the original *and* the
+  improved prompt rather than only the better one, which models fit in 4 GB of VRAM, and "n/a"
+  for cost rather than unofficial prices.
+- **Results.** Every number in this README comes from committed result files, including the ones
+  that don't flatter the repair loop.
+
 ## Roadmap
 
 - Retrieval over the docs and a small physics-notes corpus; compare with and without it.

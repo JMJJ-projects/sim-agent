@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from photonsim.materials import get_material
 
@@ -39,7 +39,7 @@ class Slab:
         layers: non-empty list of ``Layer``, front (beam side) first.
     """
 
-    layers: list[Layer] = field(default_factory=list)
+    layers: list[Layer]
 
     def __post_init__(self) -> None:
         layers = self.layers

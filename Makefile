@@ -21,4 +21,10 @@ cov:
 
 check: lint test
 
-.PHONY: install lint format test test-docker cov check
+api-doc:
+	python scripts/gen_api_doc.py
+
+materials:
+	python scripts/build_materials.py
+
+.PHONY: install lint format test test-docker cov check api-doc materials

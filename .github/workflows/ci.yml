@@ -48,3 +48,5 @@ jobs:
         env:
           SIMAGENT_REQUIRE_DOCKER: "1"
         run: pytest -q -m docker -rs
+      - name: Evaluation smoke run (fake provider, 3 tasks; proves the harness, claims no accuracy)
+        run: make eval-smoke

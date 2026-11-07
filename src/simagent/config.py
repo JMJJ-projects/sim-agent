@@ -34,6 +34,19 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, "").strip() or default
 
 
+def _int_env(name: str, default: int) -> int:
+    raw = _env(name)
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ConfigError(f"{name} must be an integer, got {raw!r}") from None
+    if value < 1:
+        raise ConfigError(f"{name} must be >= 1, got {value}")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     """Resolved settings for one invocation."""
@@ -44,6 +57,9 @@ class Settings:
     timeout_s: float = DEFAULT_TIMEOUT_S
     max_attempts: int = 4
     runs_dir: Path = Path("runs")
+    num_ctx: int = 6144
+    temperature: float = 0.0
+    llm_seed: int = 0
     limits: SandboxLimits = field(default_factory=SandboxLimits)
 
     @classmethod
@@ -56,6 +72,7 @@ class Settings:
             model=model or _env("LLM_MODEL"),
             ollama_base_url=_env("OLLAMA_BASE_URL", DEFAULT_OLLAMA_URL).rstrip("/"),
             runs_dir=Path(_env("SIMAGENT_RUNS_DIR", "runs")),
+            num_ctx=_int_env("SIMAGENT_NUM_CTX", 6144),
         )
 
     @staticmethod

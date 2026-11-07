@@ -64,7 +64,16 @@ def _progress(rec: dict[str, Any]) -> None:
     )
 
 
+def _safe_stdout() -> None:
+    """Never let a console encoding (e.g. cp1252 on Windows) crash a long run on model text."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _safe_stdout()
     args = parse_args(argv)
     load_env()
     try:

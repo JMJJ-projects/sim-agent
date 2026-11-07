@@ -2,7 +2,7 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
-## Status: CHECKPOINT B (before Phase 7, benchmark runs), waiting for the user (2026-11-07)
+## Status: Phase 7 benchmark runs in progress, Phase 8 mostly done (2026-11-07)
 
 Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
 
@@ -79,28 +79,32 @@ must come from the Phase 5 checkers. Timing: 15–35 s wall per request, 3–7k 
 - **State:** 395 tests pass with Docker (all Docker tests included), coverage 96 %, ruff + mypy
   --strict clean. Nothing pushed.
 
-## What the user needs to do (Checkpoint B)
+## Checkpoint B decisions (user, 2026-11-07)
 
-1. **Optional MCP check (Phase 6 exit criterion):** connect Claude Desktop or Claude Code as in
-   `docs/mcp.md` and run one request.
-2. **Decide the open questions below** (prompt change; hosted model and prices).
-3. **Pull the local models** for the benchmark rows (tags to confirm with `ollama list`):
-   - `qwen2.5-coder:3b` (already pulled), primary
-   - `qwen2.5-coder:1.5b`, small
-   - `llama3.2:3b` (or `qwen2.5:3b`), 3B general-purpose
-   - optional slow row: `qwen2.5-coder:7b` (does not fit fully in 4 GB VRAM: partial offload)
-4. **Plug the laptop in** and either start the runs yourself or tell me to run them. Per model,
-   both modes, resumable (re-run the same command to continue after an interruption):
+- Prompt: run both. Round 1 = prompt v1 on `qwen2.5-coder:3b` (baseline + repair); then prompt v2
+  (general import instruction, logged in NOTES.md); round 2 = v2 on every model.
+- Hosted: `openai/gpt-oss-120b` on Groq free tier; no price recorded, cost shown as
+  "n/a: free tier, official pricing unavailable on 2026-11-07"; per-task tokens reported.
+- Local models: `qwen2.5-coder:3b`, `qwen2.5-coder:1.5b`, `qwen2.5:3b`; 7B skipped for now.
+- The agent runs the benchmark itself, commits each model's results as it finishes.
+- MCP: the user's message left this choice as a placeholder; treated as "test later, don't block".
 
-   ```
-   python scripts/evaluate.py --provider ollama --model qwen2.5-coder:3b --mode baseline --vram --resume
-   python scripts/evaluate.py --provider ollama --model qwen2.5-coder:3b --mode repair --vram --resume
-   ```
+## Phase 7 / 8 status
 
-   (the same for each model tag; hosted: `--provider groq --model <tag>` without `--vram`).
-   Rough time from the runs so far: 3–35 s per task, so about 10–30 min per model and mode for
-   36 tasks on the 3B model; the 7B row will be much slower.
-5. Say "continue" to start Phase 7 (make bench target, runs, report and analysis).
+- Done: `make bench` (`scripts/bench.py`, `data/bench_plan.json`), prompt versioning, rate-limit
+  handling, output-token cap for local models (NOTES.md), round 1 results committed
+  (`qwen2.5-coder:3b` v1: baseline 7/36, repair 20/36), report with "not run yet" rows,
+  recorded demo (`docs/demo.svg`), recorded MCP session (`docs/mcp_demo.md`), README with a
+  generated results block, make targets documented.
+- In progress: see "Benchmark run status" below (updated as runs finish).
+- To resume any unfinished run: `python scripts/bench.py run --only <model>` (resumes from the
+  staging files in `runs/bench/results`), then `python scripts/bench.py promote` and
+  `python scripts/report.py`, and commit `results/`, `docs/eval_results.md`,
+  `docs/eval_chart.png`, `README.md`. `python scripts/bench.py status` shows progress.
+
+### Benchmark run status
+
+(updated at the end of the session)
 
 ## Next
 

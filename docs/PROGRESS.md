@@ -2,7 +2,7 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
-## Status: Phase 7 benchmark runs in progress, Phase 8 mostly done (2026-11-07)
+## Status: all phases done (2026-11-07); waiting for the user to push and check CI
 
 Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
 
@@ -104,25 +104,49 @@ must come from the Phase 5 checkers. Timing: 15–35 s wall per request, 3–7k 
 
 ### Benchmark run status
 
-(updated at the end of the session)
+All 10 planned runs complete and committed (36/36 tasks each), no rows "not run yet":
 
-## Next
+| model | prompt | baseline | repair |
+|---|---|---|---|
+| `qwen2.5-coder:3b` | v1 | 7/36 | 20/36 |
+| `qwen2.5-coder:3b` | v2 | 23/36 | 24/36 |
+| `openai/gpt-oss-120b` (Groq) | v2 | 34/36 | 36/36 |
+| `qwen2.5-coder:1.5b` | v2 | 4/36 | 8/36 |
+| `qwen2.5:3b` | v2 | 17/36 | 19/36 |
 
-- Phase 7 (after Checkpoint B): `make bench`, benchmark runs per model and mode, committed
-  results, generated report and an honest analysis.
-- Phase 8: recorded demo of a real self-correcting run, README, final quality pass.
+Incidents (details in NOTES.md): runaway generation → 2048-token output cap for local models;
+Groq baseline stopped once on a console-encoding crash and was resumed; 5 Ollama repeat-limit
+aborts on the 1.5B model; one 31 s container start while two runs shared Docker.
+
+## Phase 8 (done)
+
+- Recorded demo `docs/demo.svg` (real round 1 run: NameError → repair → pass), recorded MCP
+  session `docs/mcp_demo.md`, README (generated results block, analysis summary, security table,
+  make targets), `docs/eval_analysis.md`.
+- Final pass: 404 tests pass with Docker required (`SIMAGENT_REQUIRE_DOCKER=1`), coverage 96 %,
+  ruff + mypy --strict clean. Fresh clone check: `pip install -e .` → `simagent solve "..."
+  --provider fake` shows the full repair cycle (exit 0); without Docker, `doctor` and `solve`
+  print one line and exit 2.
+
+## Not verified
+
+- **CI has never run** (nothing pushed). The workflow is written but its first run may need fixes.
+- **MCP with a real client** (Claude Desktop / Claude Code) was not tested by the user; the
+  stdio protocol is tested with the SDK client in a subprocess.
+- 7B row skipped by decision.
+
+## What the user needs to do
+
+1. Review the history (`git log --oneline`) and push `main`; check that both CI jobs pass.
+2. Add a CI badge to the README once the GitHub URL is known.
+3. Optionally connect Claude Desktop or Claude Code as in `docs/mcp.md`.
+
+## Next (optional extensions, PLAN.md section 5)
+
+- Refusal-aware repair (re-ask for a refusal when a request is out of scope) and retrying
+  Ollama's repeat-limit abort: both suggested by the analysis.
+- A 7B row with partial offload; RAG over the docs; an OpenMC adapter.
 
 ## Open questions
 
-- **Prompt change before the benchmark?** In every local run so far, `qwen2.5-coder:3b` forgets
-  `import simagent_io` on the first attempt (baseline 0/3 on the 3-task check). A general change,
-  e.g. telling the model to start every script with `import photonsim as ps` and
-  `import simagent_io` (not task-specific), would likely raise baseline scores a lot and shrink
-  the repair loop's apparent benefit. Options: (a) benchmark the current prompt as is, (b) make
-  the change first and log before/after numbers in NOTES.md, (c) run both as two prompt versions.
-  Decide at Checkpoint B.
-- **Hosted model:** which Groq model (and optionally OpenAI) to benchmark? A `GROQ_API_KEY` is
-  set. For a cost column, `data/prices.json` needs that model's price from the provider's
-  official pricing page with the date; I won't fill prices from memory. Without it, cost is
-  reported as n/a.
-- **May I run the long benchmark runs myself** once the models are pulled, or do you start them?
+- None. Checkpoint B questions were answered (see above).

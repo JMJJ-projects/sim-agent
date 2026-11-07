@@ -164,3 +164,9 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   treats provider errors as not repairable; retrying this particular error is a possible change.
 - Groq free tier at a 30 s spacing needed no rate-limit retries (`openai/gpt-oss-120b`,
   72 tasks, 8000 tokens/min limit).
+
+## Process note
+
+- The pre-commit checks must run with Docker on `PATH` and `SIMAGENT_REQUIRE_DOCKER=1`;
+  otherwise the Docker tests silently skip. That hid a broken smoke test from `e030ed3` until
+  `346ad8f`. In Git Bash: `export PATH="$LOCALAPPDATA/Programs/DockerDesktop/resources/bin:$PATH"`.

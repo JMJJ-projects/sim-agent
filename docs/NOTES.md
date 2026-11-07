@@ -41,3 +41,36 @@ Deviations from `PLAN.md`, library quirks and environment facts.
   deposited locally), not a physical event probability. It keeps narrow-beam attenuation exact
   (`mu_total`) while giving a plausible absorbed/scattered split. Transmission includes scattered
   photons, so it is above `exp(-mu_total·x)` (a crude build-up). Documented in the API reference.
+
+## Sandbox (Phase 2)
+
+- **Base image and pins:** `python:3.12.16-slim-bookworm` (tag checked on Docker Hub). The full
+  wheel set in `sandbox/requirements.txt` was resolved for cp312/manylinux x86_64 with
+  `pip install --dry-run --report --platform … --only-binary=:all:` and is installed with
+  `--no-deps` + `pip check`. Version bumps: re-run that resolution, don't hand-edit one pin.
+- **Getting `result.json` out:** R-SBX-3 needs a size-limited writable `/out` *and* `--rm`, so
+  `/out` is a tmpfs that disappears with the container; `docker cp` after exit is impossible.
+  `sandbox/launch.py` (in the image, standard library only) runs the script as a child process,
+  then prints `result.json` after a marker line containing a random per-run nonce. The host takes
+  the last marker. A script that forges a marker can only fake its own result, which it could do
+  with `submit()` anyway, so this adds no new capability. Raw stdout is kept up to ~1.25 MB (tail)
+  so a maximal 1 MB result survives, then the visible stdout is capped to 20 000 chars (R-SBX-6).
+- **Timeouts:** `subprocess` timeouts only kill the `docker` CLI, not the container, so the
+  runner names each container (`simagent-<random>`) and runs `docker kill` on timeout.
+- Extra hardening beyond R-SBX-3: `--pull never` (a missing image fails fast instead of pulling),
+  `--ipc none`, `--ulimit nofile=256:256`, `noexec,nosuid,nodev` on both tmpfs mounts, swap
+  disabled (`--memory-swap` = `--memory`), `python -I -B` (isolated mode).
+- `docker` CLI on Windows: Docker Desktop must be able to bind-mount the temp dir
+  (`%LOCALAPPDATA%\Temp`, under `C:\Users`, shared by default with the WSL2 backend).
+- `SIMAGENT_REQUIRE_DOCKER=1` makes pytest fail (exit 4) instead of skipping Docker tests; CI sets it.
+- The policy also blocks numpy's file/native helpers (`np.load`, `np.save*`, `loadtxt`,
+  `fromfile`, `memmap`, `ctypeslib`, `f2py`, …), `vars/globals/locals`, `input`, `help`,
+  `memoryview`, and format strings that reach dunder attributes. `__name__` stays allowed
+  (`if __name__ == "__main__":`, `type(x).__name__`).
+- `LocalRunner` passes only a minimal environment (no host variables, so no API keys), plus
+  `SYSTEMROOT`/`WINDIR`/`TEMP`/`TMP` on Windows, which Python needs to start.
+
+## Environment update (2026-11-07)
+
+- An Ollama server answers on `http://localhost:11434` (no models pulled yet), although
+  `ollama` is not on the Git Bash PATH.

@@ -251,3 +251,22 @@ def solve(
     else:
         _print_final(final, run_dir)
     raise typer.Exit(EXIT_OK if final["status"] == "solved" else EXIT_NOT_SOLVED)
+
+
+@app.command()
+@expected_errors
+def mcp(
+    provider: Annotated[
+        str | None, typer.Option(help="Provider used by the solve tool (default: LLM_PROVIDER).")
+    ] = None,
+    model: Annotated[str | None, typer.Option(help="Model name (default: LLM_MODEL).")] = None,
+) -> None:
+    """Start the MCP server on stdio (tools: describe_simulator, run_simulation_script, solve)."""
+    from simagent.mcp_server import build_server
+
+    settings = Settings.from_env(provider=provider, model=model)
+    err.print(
+        f"simagent MCP server on stdio (provider {settings.provider}); Ctrl+C to stop",
+        highlight=False,
+    )
+    build_server(settings).run("stdio")

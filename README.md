@@ -98,7 +98,7 @@ The CI workflow's `sandbox` job builds the image and runs these Docker tests, an
 | ollama `qwen2.5-coder:3b` | v2 | 64 % (23/36) | 67 % (24/36) | 4.8 s | 2,406 / 385 | n/a: local model |
 | groq `openai/gpt-oss-120b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |
 | ollama `qwen2.5-coder:1.5b` | v2 | 11 % (4/36) | 22 % (8/36) | 8.8 s | n/a / n/a | n/a: local model |
-| ollama `qwen2.5:3b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |
+| ollama `qwen2.5:3b` | v2 | 47 % (17/36) | 53 % (19/36) | 7.4 s | 4,126 / 479 | n/a: local model |
 
 36 tasks per run. Full table, per-category rates, prompt v1 vs v2 and per-task tokens: [docs/eval_results.md](docs/eval_results.md).
 

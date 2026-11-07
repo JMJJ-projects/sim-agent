@@ -21,10 +21,13 @@ cov:
 
 check: lint test
 
+sandbox-image:
+	docker build -f sandbox/Dockerfile -t simagent-sandbox .
+
 api-doc:
 	python scripts/gen_api_doc.py
 
 materials:
 	python scripts/build_materials.py
 
-.PHONY: install lint format test test-docker cov check api-doc materials
+.PHONY: sandbox-image install lint format test test-docker cov check api-doc materials

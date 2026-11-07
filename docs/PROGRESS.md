@@ -2,7 +2,9 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
-## Status: CHECKPOINT A (end of Phase 2), waiting for user review (2026-11-07)
+## Status: Phase 4 (agent graph) in progress (2026-11-07)
+
+Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
 
 ## Done
 
@@ -32,38 +34,19 @@ Living log of where the project stands. Updated at the end of every session and 
     when Docker is not ready (R-SBX-9).
 - Local state: 179 tests pass, 14 Docker tests skipped (no Docker here), coverage 97 %.
 
-## Not yet verified (needs Docker)
-
-The Phase 2 exit criterion "all sandbox tests pass locally and in CI" is **not met yet**: Docker
-is not installed on this machine, so the image has never been built and the 14 isolation tests
-have never run. The Dockerfile pins were checked against Docker Hub and PyPI (tags and cp312
-manylinux wheels exist), but a real build may still need fixes.
-
-## What the user needs to do (Checkpoint A)
-
-1. **Install Docker Desktop** (WSL2 backend) and start it. Check: `docker version`.
-2. Build the image (no `make` on Windows, so run the command directly):
-   `docker build -f sandbox/Dockerfile -t simagent-sandbox .`
-3. Run the isolation tests: `.venv\Scripts\python -m pytest -q -m docker -rs`
-   and `simagent doctor` (should show docker + sandbox image as ok).
-4. **Review the sandbox before any model-generated code runs:**
-   - flags: `src/simagent/runners/docker.py` → `DockerRunner.command`
-   - image: `sandbox/Dockerfile`, `sandbox/launch.py`
-   - policy: `src/simagent/policy.py`
-   - tests: `tests/test_sandbox.py`, `tests/test_runner_unit.py`, `tests/test_policy.py`
-5. Optionally push to GitHub so CI runs the `sandbox` job on Ubuntu.
-6. Pull the Ollama models for Phase 3/4 (an Ollama server is already running here with no models
-   pulled), e.g. `ollama pull qwen2.5-coder:3b` (exact tags are chosen and logged in Phase 3).
-7. Say "continue" to start Phase 3 (LLM layer).
+- **Checkpoint A follow-up:** `fix(policy)` rejects dangerous modules reached through allowed
+  modules' attributes (`matplotlib.os`, `matplotlib.subprocess`, ...) and exec/spawn/fork.
+- **Phase 3, LLM layer:** provider factory (ollama/groq/openai/fake), scripted fake model with a
+  built-in buggy-then-fixed demo, per-call metrics (tokens, TTFT, latency, tok/s; null when not
+  reported), prompts (system + API + result contract, delimited request, repair), and single
+  code-block extraction with refusals. Manual check with `qwen2.5-coder:3b`: code block + metrics
+  returned (see NOTES.md).
 
 ## Next
 
-- Phase 3: provider factory, scripted `fake` provider + offline demo script, metrics (TTFT,
-  tokens, throughput), prompts and code-block extraction.
+- Phase 4: agent state, nodes, graph, artifacts (incl. small PNGs from /out, requested at
+  Checkpoint A), `simagent solve`, graph diagram.
 
 ## Open questions
 
-- `/out` is a size-limited tmpfs removed with the container (`--rm`), so the launcher prints
-  `result.json` to stdout after a per-run nonce marker (see `docs/NOTES.md`). Other files a
-  script writes to `/out` (e.g. plots) are not returned yet. Is that OK for now, or should plots
-  be returned (e.g. base64 in the result, size-capped)?
+- None.

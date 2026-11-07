@@ -74,3 +74,26 @@ Deviations from `PLAN.md`, library quirks and environment facts.
 
 - An Ollama server answers on `http://localhost:11434` (no models pulled yet), although
   `ollama` is not on the Git Bash PATH.
+
+## LLM layer (Phase 3, 2026-11-07)
+
+- Versions: langchain-ollama 1.1.0 (ollama 0.6.3), langchain-groq 1.1.3, langchain-openai 1.7.4,
+  langchain-core 1.7.6; Ollama server 0.40.15. Local model tag: `qwen2.5-coder:3b`.
+- `ChatOllama` fields used: `model`, `base_url`, `num_ctx`, `temperature`, `seed`. Streaming puts
+  token counts in `usage_metadata` and Ollama's timings (`eval_count`, `eval_duration`,
+  `prompt_eval_*`, `load_duration`, ns) in `response_metadata` of the final chunk.
+- `ChatGroq` has no `stream_usage` field; it reads usage from the `x_groq` field of streamed
+  chunks. `ChatOpenAI` needs `stream_usage=True` to report tokens while streaming.
+- In langchain-core 1.x `AIMessageChunk.text` is a property (it was a method in 0.3).
+- Measured on the RTX 3050 4 GB: `qwen2.5-coder:3b` sits fully in VRAM (2.0 GB at
+  num_ctx 4096) and generates ≈58–65 tok/s warm. The very first call after pulling took 85 s
+  (39 s load + slow first prompt eval), and changing `num_ctx` forces a reload (≈7 s TTFT).
+  Benchmarks should do a warm-up call per model before timing.
+- First manual end-to-end check (generate prompt → qwen2.5-coder:3b → policy → Docker): one
+  well-formed code block, 1460 input / 140 output tokens, TTFT 2.9 s, 65 tok/s; the script failed
+  with `NameError: simagent_io` (missing import), a realistic case for the repair loop.
+- Policy follow-up from Checkpoint A review: allowed modules re-export `os`, `sys`, `subprocess`
+  etc. as attributes (`matplotlib.subprocess`); those attribute names and the exec/spawn/fork
+  families are now rejected everywhere.
+- Docker Desktop installs `docker.exe` under `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin`;
+  shells opened before the install don't have it on PATH.

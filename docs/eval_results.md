@@ -31,7 +31,7 @@ Round 1 (prompt v1) is not run yet.
 | model | prompt | mode | single_run | sweep | compare | search | multi_step | ambiguous_or_misleading | adversarial |
 |---|---|---|---|---|---|---|---|---|---|
 
-`repaired`: tasks passed after more than one attempt. `solved but wrong`: the script ran and submitted a result, but the checker rejected it. Tokens, TTFT and tokens/s are `n/a` when the provider did not report them. Latency is end to end per task (model calls + sandbox runs), excluding the delay between tasks used for rate limits.
+`repaired`: tasks passed after more than one attempt. `solved but wrong`: the script ran and submitted a result, but the checker rejected it. Tokens, TTFT and tokens/s are `n/a` when the provider did not report them. Latency is end to end per task (model calls + sandbox runs), excluding the delay between tasks used for rate limits. Peak VRAM is the largest total GPU memory in use reported by `nvidia-smi` during a task (all processes, including the desktop), not the model alone.
 
 ## Tokens per task
 

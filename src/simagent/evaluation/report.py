@@ -165,7 +165,9 @@ def render_markdown(
         "\n`repaired`: tasks passed after more than one attempt. `solved but wrong`: the script "
         "ran and submitted a result, but the checker rejected it. Tokens, TTFT and tokens/s are "
         "`n/a` when the provider did not report them. Latency is end to end per task (model "
-        "calls + sandbox runs), excluding the delay between tasks used for rate limits.\n"
+        "calls + sandbox runs), excluding the delay between tasks used for rate limits. "
+        "Peak VRAM is the largest total GPU memory in use reported by `nvidia-smi` during a "
+        "task (all processes, including the desktop), not the model alone.\n"
     )
     out.append(_token_tables(rows, runs))
     return "\n".join(out)

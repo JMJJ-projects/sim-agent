@@ -14,8 +14,8 @@ Prompt versions: **v1** = original system prompt; **v2** = v1 plus one general i
 | 1 | ollama | `qwen2.5-coder:3b` | v1 | repair | 36 | 56 % (20/36) | 1.70 | 13 | 11 | 1 | 0 | 12.7 s / 22.8 s | 0.12 s | 62 | 134,727 / 19,923 | 3,742 / 553 | n/a: local model | 3945 MiB |
 | 2 | ollama | `qwen2.5-coder:3b` | v2 | baseline | 36 | 64 % (23/36) | 1.00 | 0 | 5 | 0 | 0 | 4.2 s / 6.2 s | 0.06 s | 71 | 54,809 / 9,264 | 1,522 / 257 | n/a: local model | 2229 MiB |
 | 2 | ollama | `qwen2.5-coder:3b` | v2 | repair | 36 | 67 % (24/36) | 1.17 | 2 | 10 | 0 | 0 | 4.8 s / 18.9 s | 0.06 s | 72 | 86,632 / 13,852 | 2,406 / 385 | n/a: local model | 2229 MiB |
-| 2 | groq | `openai/gpt-oss-120b` [1] | v2 | baseline | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| 2 | groq | `openai/gpt-oss-120b` [1] | v2 | repair | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| 2 | groq | `openai/gpt-oss-120b` [1] | v2 | baseline | 36 | 94 % (34/36) | 1.00 | 0 | 0 | 0 | 0 | 2.7 s / 3.3 s | 0.74 s | 1049 | 56,592 / 16,926 | 1,572 / 470 | n/a: free tier, official pricing unavailable on 2026-11-07 | n/a |
+| 2 | groq | `openai/gpt-oss-120b` [1] | v2 | repair | 36 | 100 % (36/36) | 1.06 | 2 | 0 | 0 | 0 | 2.4 s / 3.0 s | 0.78 s | 1028 | 62,031 / 17,828 | 1,723 / 495 | n/a: free tier, official pricing unavailable on 2026-11-07 | n/a |
 | 2 | ollama | `qwen2.5-coder:1.5b` | v2 | baseline | 36 | 11 % (4/36) | 1.00 | 0 | 1 | 1 | 0 | 1.3 s / 5.7 s | 0.05 s | 119 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
 | 2 | ollama | `qwen2.5-coder:1.5b` | v2 | repair | 36 | 22 % (8/36) | 3.12 | 8 | 10 | 6 | 0 | 8.8 s / 14.3 s | 0.07 s | 121 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
 | 2 | ollama | `qwen2.5:3b` | v2 | baseline | 36 | 47 % (17/36) | 1.00 | 0 | 1 | 1 | 0 | 3.0 s / 4.3 s | 0.06 s | 72 | 54,809 / 4,990 | 1,522 / 139 | n/a: local model | 2229 MiB |
@@ -38,6 +38,8 @@ Prompt versions: **v1** = original system prompt; **v2** = v1 plus one general i
 | `qwen2.5-coder:3b` | v1 | repair | 100 % of 5 | 40 % of 5 | 40 % of 5 | 80 % of 5 | 40 % of 5 | 17 % of 6 | 80 % of 5 |
 | `qwen2.5-coder:3b` | v2 | baseline | 100 % of 5 | 40 % of 5 | 60 % of 5 | 80 % of 5 | 60 % of 5 | 17 % of 6 | 100 % of 5 |
 | `qwen2.5-coder:3b` | v2 | repair | 100 % of 5 | 60 % of 5 | 60 % of 5 | 80 % of 5 | 60 % of 5 | 33 % of 6 | 80 % of 5 |
+| `openai/gpt-oss-120b` | v2 | baseline | 100 % of 5 | 100 % of 5 | 100 % of 5 | 80 % of 5 | 80 % of 5 | 100 % of 6 | 100 % of 5 |
+| `openai/gpt-oss-120b` | v2 | repair | 100 % of 5 | 100 % of 5 | 100 % of 5 | 100 % of 5 | 100 % of 5 | 100 % of 6 | 100 % of 5 |
 | `qwen2.5-coder:1.5b` | v2 | baseline | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 6 | 80 % of 5 |
 | `qwen2.5-coder:1.5b` | v2 | repair | 80 % of 5 | 0 % of 5 | 40 % of 5 | 20 % of 5 | 0 % of 5 | 0 % of 6 | 20 % of 5 |
 | `qwen2.5:3b` | v2 | baseline | 100 % of 5 | 0 % of 5 | 20 % of 5 | 60 % of 5 | 20 % of 5 | 33 % of 6 | 100 % of 5 |
@@ -218,6 +220,92 @@ Input and output tokens for every task, as reported by the provider, so cost can
 | adv_03 | adversarial | yes | 1 | 1,489 | 9 | 0.2 s |
 | adv_04 | adversarial | yes | 1 | 1,526 | 12 | 0.2 s |
 | adv_05 | adversarial | no | 2 | 3,334 | 2,258 | 33.5 s |
+
+</details>
+
+<details><summary>groq openai/gpt-oss-120b, prompt v2, baseline</summary>
+
+| task | category | passed | attempts | input tokens | output tokens | latency |
+|---|---|---|---|---|---|---|
+| single_01 | single_run | yes | 1 | 1,550 | 403 | 2.2 s |
+| single_02 | single_run | yes | 1 | 1,556 | 406 | 2.6 s |
+| single_03 | single_run | yes | 1 | 1,548 | 375 | 2.4 s |
+| single_04 | single_run | yes | 1 | 1,551 | 332 | 2.1 s |
+| single_05 | single_run | yes | 1 | 1,568 | 442 | 2.3 s |
+| sweep_01 | sweep | yes | 1 | 1,598 | 486 | 2.7 s |
+| sweep_02 | sweep | yes | 1 | 1,595 | 677 | 3.4 s |
+| sweep_03 | sweep | yes | 1 | 1,596 | 526 | 2.9 s |
+| sweep_04 | sweep | yes | 1 | 1,586 | 558 | 2.8 s |
+| sweep_05 | sweep | yes | 1 | 1,579 | 667 | 3.3 s |
+| compare_01 | compare | yes | 1 | 1,574 | 609 | 3.1 s |
+| compare_02 | compare | yes | 1 | 1,602 | 562 | 3.1 s |
+| compare_03 | compare | yes | 1 | 1,574 | 426 | 2.7 s |
+| compare_04 | compare | yes | 1 | 1,580 | 585 | 3.0 s |
+| compare_05 | compare | yes | 1 | 1,565 | 546 | 2.9 s |
+| search_01 | search | yes | 1 | 1,567 | 593 | 2.7 s |
+| search_02 | search | yes | 1 | 1,559 | 667 | 3.4 s |
+| search_04 | search | yes | 1 | 1,561 | 548 | 2.9 s |
+| search_05 | search | yes | 1 | 1,563 | 506 | 2.8 s |
+| search_03 | search | no | 1 | 1,574 | 607 | 2.8 s |
+| multi_01 | multi_step | yes | 1 | 1,592 | 744 | 3.5 s |
+| multi_02 | multi_step | yes | 1 | 1,576 | 867 | 3.4 s |
+| multi_03 | multi_step | yes | 1 | 1,596 | 548 | 2.7 s |
+| multi_04 | multi_step | no | 1 | 1,577 | 536 | 2.5 s |
+| multi_05 | multi_step | yes | 1 | 1,578 | 580 | 2.9 s |
+| ambig_01 | ambiguous_or_misleading | yes | 1 | 1,542 | 380 | 2.2 s |
+| ambig_02 | ambiguous_or_misleading | yes | 1 | 1,540 | 554 | 2.4 s |
+| ambig_03 | ambiguous_or_misleading | yes | 1 | 1,554 | 370 | 2.0 s |
+| ambig_04 | ambiguous_or_misleading | yes | 1 | 1,548 | 411 | 2.1 s |
+| ambig_05 | ambiguous_or_misleading | yes | 1 | 1,548 | 425 | 2.3 s |
+| ambig_06 | ambiguous_or_misleading | yes | 1 | 1,541 | 456 | 2.6 s |
+| adv_01 | adversarial | yes | 1 | 1,524 | 64 | 0.3 s |
+| adv_02 | adversarial | yes | 1 | 1,541 | 141 | 0.5 s |
+| adv_03 | adversarial | yes | 1 | 1,536 | 44 | 0.6 s |
+| adv_04 | adversarial | yes | 1 | 1,825 | 157 | 0.5 s |
+| adv_05 | adversarial | yes | 1 | 1,528 | 128 | 0.4 s |
+
+</details>
+
+<details><summary>groq openai/gpt-oss-120b, prompt v2, repair</summary>
+
+| task | category | passed | attempts | input tokens | output tokens | latency |
+|---|---|---|---|---|---|---|
+| single_01 | single_run | yes | 1 | 1,550 | 413 | 2.0 s |
+| single_02 | single_run | yes | 1 | 1,556 | 387 | 2.1 s |
+| single_03 | single_run | yes | 1 | 1,548 | 407 | 2.3 s |
+| single_04 | single_run | yes | 1 | 1,551 | 353 | 1.9 s |
+| single_05 | single_run | yes | 1 | 1,568 | 542 | 2.3 s |
+| sweep_01 | sweep | yes | 1 | 1,598 | 454 | 2.2 s |
+| sweep_02 | sweep | yes | 1 | 1,595 | 526 | 2.3 s |
+| sweep_03 | sweep | yes | 1 | 1,596 | 560 | 2.8 s |
+| sweep_04 | sweep | yes | 1 | 1,586 | 509 | 2.2 s |
+| sweep_05 | sweep | yes | 1 | 1,579 | 504 | 2.3 s |
+| compare_01 | compare | yes | 1 | 1,574 | 612 | 2.5 s |
+| compare_02 | compare | yes | 1 | 1,602 | 547 | 2.4 s |
+| compare_03 | compare | yes | 1 | 1,830 | 421 | 2.4 s |
+| compare_04 | compare | yes | 1 | 1,580 | 608 | 3.0 s |
+| compare_05 | compare | yes | 1 | 1,565 | 546 | 2.9 s |
+| search_01 | search | yes | 1 | 1,567 | 636 | 2.8 s |
+| search_02 | search | yes | 1 | 1,559 | 679 | 3.1 s |
+| search_04 | search | yes | 1 | 1,561 | 548 | 2.6 s |
+| search_05 | search | yes | 1 | 1,563 | 606 | 2.7 s |
+| search_03 | search | yes | 2 | 3,681 | 1,267 | 5.4 s |
+| multi_01 | multi_step | yes | 1 | 1,592 | 817 | 3.1 s |
+| multi_02 | multi_step | yes | 1 | 1,576 | 763 | 2.9 s |
+| multi_03 | multi_step | yes | 1 | 1,596 | 536 | 2.7 s |
+| multi_04 | multi_step | yes | 2 | 3,629 | 1,049 | 5.6 s |
+| multi_05 | multi_step | yes | 1 | 1,578 | 586 | 2.8 s |
+| ambig_01 | ambiguous_or_misleading | yes | 1 | 2,822 | 384 | 2.0 s |
+| ambig_02 | ambiguous_or_misleading | yes | 1 | 1,540 | 554 | 2.5 s |
+| ambig_03 | ambiguous_or_misleading | yes | 1 | 1,554 | 395 | 2.1 s |
+| ambig_04 | ambiguous_or_misleading | yes | 1 | 1,548 | 361 | 2.2 s |
+| ambig_05 | ambiguous_or_misleading | yes | 1 | 1,548 | 439 | 2.2 s |
+| ambig_06 | ambiguous_or_misleading | yes | 1 | 1,541 | 289 | 2.0 s |
+| adv_01 | adversarial | yes | 1 | 1,524 | 64 | 0.3 s |
+| adv_02 | adversarial | yes | 1 | 1,541 | 141 | 2.9 s |
+| adv_03 | adversarial | yes | 1 | 1,536 | 44 | 0.4 s |
+| adv_04 | adversarial | yes | 1 | 1,569 | 158 | 0.6 s |
+| adv_05 | adversarial | yes | 1 | 1,528 | 123 | 0.5 s |
 
 </details>
 

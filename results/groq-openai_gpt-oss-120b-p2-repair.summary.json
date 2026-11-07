@@ -1,0 +1,41 @@
+{
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "mode": "repair",
+  "prompt_version": 2,
+  "max_attempts": 4,
+  "tasks": 36,
+  "passed": 36,
+  "success_rate": 1.0,
+  "success_rate_by_category": {
+    "adversarial": 1.0,
+    "ambiguous_or_misleading": 1.0,
+    "compare": 1.0,
+    "multi_step": 1.0,
+    "search": 1.0,
+    "single_run": 1.0,
+    "sweep": 1.0
+  },
+  "tasks_by_category": {
+    "adversarial": 5,
+    "ambiguous_or_misleading": 6,
+    "compare": 5,
+    "multi_step": 5,
+    "search": 5,
+    "single_run": 5,
+    "sweep": 5
+  },
+  "mean_attempts_solved": 1.0555555555555556,
+  "repaired_successes": 2,
+  "status_solved_but_wrong": 0,
+  "policy_violations": 0,
+  "timeouts": 0,
+  "latency_median_s": 2.355,
+  "latency_p90_s": 3.045,
+  "ttft_median_s": 0.7796769499982474,
+  "tokens_per_s_median": 1028.4896312363148,
+  "input_tokens_total": 62031,
+  "output_tokens_total": 17828,
+  "cost_usd_total": null,
+  "peak_vram_mib": null
+}

@@ -1,5 +1,7 @@
 # sim-agent
 
+[![CI](https://github.com/JMJJ-projects/sim-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/JMJJ-projects/sim-agent/actions/workflows/ci.yml)
+
 **Natural language → sandboxed simulation code, with a self-correction loop, an MCP server and
 an honest evaluation harness.** Ask a question about photon transport in plain language ("sweep
 the lead thickness from 1 to 10 cm and tell me where transmission drops below 1 %"). The agent

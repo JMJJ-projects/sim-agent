@@ -55,6 +55,7 @@ def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
         "provider": first.get("provider"),
         "model": first.get("model"),
         "mode": first.get("mode"),
+        "prompt_version": first.get("prompt_version"),
         "max_attempts": first.get("max_attempts"),
         "tasks": n,
         "passed": len(passed),

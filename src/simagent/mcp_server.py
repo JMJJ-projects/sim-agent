@@ -78,6 +78,7 @@ def _default_deps(settings: Settings, runner: Runner) -> AgentDeps:
         provider=settings.provider,
         model_name=resolve_model(settings),
         timeout_s=settings.timeout_s,
+        prompt_version=settings.prompt_version,
     )
 
 

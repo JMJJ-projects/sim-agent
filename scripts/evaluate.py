@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from simagent import prompts
 from simagent.agent import check_model, check_runner, validate_max_attempts
 from simagent.config import ConfigError, Settings, load_env
 from simagent.evaluation.expected import load_expected
@@ -41,6 +42,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--limit", type=int, default=None, help="only the first N tasks")
     ap.add_argument("--resume", action="store_true", help="continue an existing results file")
     ap.add_argument("--run-name", default=None)
+    ap.add_argument(
+        "--prompt-version", type=int, default=None, help="prompt version (default: latest)"
+    )
+    ap.add_argument(
+        "--delay", type=float, default=0.0, help="seconds to wait between tasks (rate limits)"
+    )
     ap.add_argument("--vram", action="store_true", help="sample peak VRAM with nvidia-smi")
     ap.add_argument("--no-warmup", action="store_true", help="skip the untimed warm-up call")
     ap.add_argument("--results-dir", type=Path, default=ROOT / "results")
@@ -63,6 +70,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = Settings.from_env(provider=args.provider, model=args.model)
         validate_max_attempts(args.max_attempts)
+        try:
+            prompt_version = prompts.resolve_version(args.prompt_version)
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from None
         model_name = resolve_model(settings)
         runner = DockerRunner(settings.limits)
         check_runner(runner)
@@ -80,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
             resume=args.resume,
             timeout_s=settings.timeout_s,
+            prompt_version=prompt_version,
+            delay_s=args.delay,
             sample_vram=args.vram,
             prices=load_prices(ROOT / "data" / "prices.json"),
         )

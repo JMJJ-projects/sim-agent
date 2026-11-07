@@ -40,9 +40,16 @@ from simagent.state import AgentState, AttemptRecord, FinalAnswer
 MODES = ("baseline", "repair")
 
 
-def run_name_for(provider: str, model: str, mode: str) -> str:
-    """Default run name, safe as a file name: ``<provider>-<model>-<mode>``."""
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", f"{provider}-{model}-{mode}")
+def run_name_for(provider: str, model: str, mode: str, prompt_version: int) -> str:
+    """Default run name, safe as a file name: ``<provider>-<model>-p<version>-<mode>``."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", f"{provider}-{model}-p{prompt_version}-{mode}")
+
+
+RATE_LIMIT_MARKERS = ("RateLimit", "rate limit", "rate_limit", "429")
+
+
+class RateLimitedError(RuntimeError):
+    """The provider rate-limited a model call; the task should be retried later."""
 
 
 def fake_reply(task: Task, root: Path) -> str:
@@ -139,12 +146,18 @@ class EvalConfig:
     limit: int | None = None
     resume: bool = False
     timeout_s: float = 60.0
+    prompt_version: int = 1
+    delay_s: float = 0.0
+    rate_limit_retries: int = 6
+    rate_limit_wait_s: float = 30.0
     sample_vram: bool = False
     prices: dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
-        return self.run_name or run_name_for(self.provider, self.model, self.mode)
+        return self.run_name or run_name_for(
+            self.provider, self.model, self.mode, self.prompt_version
+        )
 
     @property
     def attempts_for_mode(self) -> int:
@@ -175,6 +188,8 @@ def evaluate_task(
     model: BaseChatModel,
     runner: Runner,
     expected: dict[str, Any],
+    *,
+    allow_rate_limit: bool = False,
 ) -> dict[str, Any]:
     """Run the agent on one task and score it."""
     collector = _Collector()
@@ -188,6 +203,7 @@ def evaluate_task(
         provider=cfg.provider,
         model_name=cfg.model,
         timeout_s=cfg.timeout_s,
+        prompt_version=cfg.prompt_version,
         hooks=[collector, writer],
     )
     sampler = VramSampler() if cfg.sample_vram else None
@@ -205,6 +221,11 @@ def evaluate_task(
     latency = time.perf_counter() - start
 
     attempts = collector.attempts
+    for a in attempts if not allow_rate_limit else []:
+        if a["outcome"] == "model_error" and any(
+            m in (a["error"] or "") for m in RATE_LIMIT_MARKERS
+        ):
+            raise RateLimitedError(a["error"] or "rate limited")
     executed = any(a["run"] is not None for a in attempts)
     status = final["status"] if final is not None else "error"
     result = (
@@ -225,6 +246,7 @@ def evaluate_task(
         "provider": cfg.provider,
         "model": cfg.model,
         "mode": cfg.mode,
+        "prompt_version": cfg.prompt_version,
         "max_attempts": cfg.attempts_for_mode,
         "status": status,
         "passed": outcome.passed,
@@ -274,13 +296,41 @@ def run_eval(
         for task in selected:
             if task.id in done:
                 continue
-            record = evaluate_task(task, cfg, model_for(task), runner, expected)
+            record = _evaluate_with_retries(task, cfg, model_for, runner, expected)
             fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
             fh.flush()
             new.append(record)
             if progress is not None:
                 progress(record)
+            if cfg.delay_s > 0:
+                time.sleep(cfg.delay_s)  # free-tier rate limits; not part of any latency
     return new
+
+
+def _evaluate_with_retries(
+    task: Task,
+    cfg: EvalConfig,
+    model_for: Callable[[Task], BaseChatModel],
+    runner: Runner,
+    expected: dict[str, Any],
+) -> dict[str, Any]:
+    """Retry a rate-limited task after a backoff; give up (and record it) after the limit."""
+    for attempt in range(cfg.rate_limit_retries + 1):
+        try:
+            record = evaluate_task(task, cfg, model_for(task), runner, expected)
+        except RateLimitedError as exc:
+            if attempt == cfg.rate_limit_retries:
+                break
+            wait = cfg.rate_limit_wait_s * (2**attempt)
+            print(f"rate limited on {task.id}; retrying in {wait:.0f} s ({exc})", flush=True)
+            time.sleep(wait)
+            continue
+        record["rate_limit_retries"] = attempt
+        return record
+    # Still rate limited: score the task as it is (a failed run), never skip it silently.
+    record = evaluate_task(task, cfg, model_for(task), runner, expected, allow_rate_limit=True)
+    record["rate_limit_retries"] = cfg.rate_limit_retries
+    return record
 
 
 def fake_model_factory(root: Path) -> Callable[[Task], BaseChatModel]:

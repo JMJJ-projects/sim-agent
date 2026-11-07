@@ -62,5 +62,13 @@ def test_validate_request(bad: str) -> None:
         prompts.validate_request(bad)
 
 
+def test_prompt_versions() -> None:
+    assert prompts.resolve_version(None) == prompts.PROMPT_VERSION_LATEST
+    assert prompts.resolve_version(1) == 1
+    with pytest.raises(ValueError, match="unknown prompt version"):
+        prompts.resolve_version(99)
+    assert prompts.SYSTEMS[1] in _text(prompts.system_message(1))
+
+
 def test_validate_request_strips() -> None:
     assert prompts.validate_request("  hi  ") == "hi"

@@ -52,6 +52,7 @@ class AgentDeps:
     provider: str
     model_name: str
     timeout_s: float = 60.0
+    prompt_version: int | None = None
     hooks: list[AttemptHook] = field(default_factory=list)
     clock: Callable[[], float] = time.perf_counter
 
@@ -124,6 +125,7 @@ def summarise_metrics(attempts: list[AttemptRecord]) -> dict[str, Any]:
 
 def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
     """Build the node functions with ``deps`` bound."""
+    version = prompts.resolve_version(deps.prompt_version)
 
     def _call_model(
         state: AgentState, kind: AttemptKind, messages: list[BaseMessage]
@@ -155,15 +157,17 @@ def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
         return {"current": attempt}
 
     def generate(state: AgentState) -> dict[str, Any]:
-        return _call_model(state, "generate", prompts.generate_messages(state["request"]))
+        return _call_model(state, "generate", prompts.generate_messages(state["request"], version))
 
     def repair(state: AgentState) -> dict[str, Any]:
         last = state["attempts"][-1]
         error = last["error"] or "unknown error"
         if last["code"] is None:
-            messages = prompts.repair_format_messages(state["request"], last["reply"], error)
+            messages = prompts.repair_format_messages(
+                state["request"], last["reply"], error, version
+            )
         else:
-            messages = prompts.repair_messages(state["request"], last["code"], error)
+            messages = prompts.repair_messages(state["request"], last["code"], error, version)
         return _call_model(state, "repair", messages)
 
     def check_policy(state: AgentState) -> dict[str, Any]:

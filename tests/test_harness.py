@@ -13,6 +13,7 @@ from simagent.evaluation.expected import load_expected
 from simagent.evaluation.harness import EvalConfig, cost_usd, fake_model_factory, run_eval
 from simagent.evaluation.summary import read_records, summarise
 from simagent.evaluation.tasks import Task, load_tasks
+from simagent.llm import ScriptedChatModel
 from simagent.runners import LocalRunner
 from simagent.runners.base import Runner, RunResult
 
@@ -80,7 +81,7 @@ def test_fake_eval_end_to_end_and_resume(tmp_path: Path) -> None:
 def test_baseline_mode_uses_one_attempt(tmp_path: Path) -> None:
     cfg = _cfg(tmp_path, mode="baseline")
     assert cfg.attempts_for_mode == 1
-    assert cfg.name == "fake-scripted-baseline"
+    assert cfg.name == "fake-scripted-p1-baseline"
 
 
 def test_local_runner_rejected(tmp_path: Path) -> None:
@@ -123,9 +124,47 @@ def test_cost_from_dated_price_table() -> None:
 
 
 def test_run_name_is_file_safe() -> None:
-    assert harness.run_name_for("ollama", "qwen2.5-coder:3b", "repair") == (
-        "ollama-qwen2.5-coder_3b-repair"
+    assert harness.run_name_for("ollama", "qwen2.5-coder:3b", "repair", 2) == (
+        "ollama-qwen2.5-coder_3b-p2-repair"
     )
+
+
+class RateLimitedModel(ScriptedChatModel):
+    """Raises a rate-limit error for the first ``limit`` calls, then replies."""
+
+    limit: int = 1
+    _n: int = 0
+
+    def _next(self, messages: Any) -> str:
+        type(self)._n += 1
+        if type(self)._n <= self.limit:
+            raise RuntimeError("Error code: 429 - rate_limit_exceeded")
+        return super()._next(messages)
+
+
+def test_rate_limited_task_is_retried(tmp_path: Path) -> None:
+    tasks = _pick("adv_01")
+    RateLimitedModel._n = 0
+    reply = harness.fake_reply(tasks[0], ROOT)
+    cfg = _cfg(tmp_path, rate_limit_wait_s=0.0)
+    records = run_eval(
+        cfg, tasks, EXPECTED, Delegating(), lambda t: RateLimitedModel(replies=[reply])
+    )
+    assert records[0]["passed"]
+    assert records[0]["rate_limit_retries"] == 1
+    assert records[0]["prompt_version"] == 1
+
+
+def test_persistent_rate_limit_is_recorded_as_failure(tmp_path: Path) -> None:
+    tasks = _pick("single_01")
+    RateLimitedModel._n = 0
+    cfg = _cfg(tmp_path, rate_limit_wait_s=0.0, rate_limit_retries=1)
+    records = run_eval(
+        cfg, tasks, EXPECTED, Delegating(), lambda t: RateLimitedModel(replies=[], limit=99)
+    )
+    assert not records[0]["passed"]
+    assert records[0]["attempt_outcomes"] == ["model_error"]
+    assert records[0]["rate_limit_retries"] == 1
 
 
 def test_vram_sampler_without_nvidia_smi(monkeypatch: pytest.MonkeyPatch) -> None:

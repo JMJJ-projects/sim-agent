@@ -60,6 +60,7 @@ class Settings:
     num_ctx: int = 6144
     temperature: float = 0.0
     llm_seed: int = 0
+    prompt_version: int | None = None  # None = latest (simagent.prompts)
     limits: SandboxLimits = field(default_factory=SandboxLimits)
 
     @classmethod
@@ -73,6 +74,7 @@ class Settings:
             ollama_base_url=_env("OLLAMA_BASE_URL", DEFAULT_OLLAMA_URL).rstrip("/"),
             runs_dir=Path(_env("SIMAGENT_RUNS_DIR", "runs")),
             num_ctx=_int_env("SIMAGENT_NUM_CTX", 6144),
+            prompt_version=_int_env("SIMAGENT_PROMPT_VERSION", 0) or None,
         )
 
     @staticmethod

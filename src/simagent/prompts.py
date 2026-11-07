@@ -94,28 +94,50 @@ def validate_request(request: str) -> str:
     return text
 
 
-def system_message() -> SystemMessage:
+# Prompt versions. Results record the version they used; old versions stay selectable so a
+# benchmark round can be resumed or reproduced after the prompt changes (see docs/NOTES.md).
+SYSTEMS: dict[int, str] = {1: SYSTEM}
+PROMPT_VERSION_LATEST = max(SYSTEMS)
+
+
+def resolve_version(version: int | None) -> int:
+    """``None`` means the latest version; unknown versions raise ``ValueError``."""
+    if version is None:
+        return PROMPT_VERSION_LATEST
+    if version not in SYSTEMS:
+        raise ValueError(f"unknown prompt version {version}; available: {sorted(SYSTEMS)}")
+    return version
+
+
+def system_message(version: int | None = None) -> SystemMessage:
     """System prompt + API reference + result contract."""
-    return SystemMessage(content=f"{SYSTEM}\n{render_api()}\n{IO_CONTRACT}")
+    system = SYSTEMS[resolve_version(version)]
+    return SystemMessage(content=f"{system}\n{render_api()}\n{IO_CONTRACT}")
 
 
-def generate_messages(request: str) -> list[BaseMessage]:
+def generate_messages(request: str, version: int | None = None) -> list[BaseMessage]:
     """Messages for the first attempt (R-AG-2)."""
-    return [system_message(), HumanMessage(content=wrap_request(request))]
+    return [system_message(version), HumanMessage(content=wrap_request(request))]
 
 
-def repair_messages(request: str, previous_code: str, error_report: str) -> list[BaseMessage]:
+def repair_messages(
+    request: str, previous_code: str, error_report: str, version: int | None = None
+) -> list[BaseMessage]:
     """Messages for a repair attempt: previous code plus a compact error report (R-AG-4)."""
     repair = REPAIR.format(code=previous_code.rstrip("\n"), error=error_report.strip())
-    return [system_message(), HumanMessage(content=f"{wrap_request(request)}\n\n{repair}")]
+    body = f"{wrap_request(request)}\n\n{repair}"
+    return [system_message(version), HumanMessage(content=body)]
 
 
-def repair_format_messages(request: str, previous_reply: str, error: str) -> list[BaseMessage]:
+def repair_format_messages(
+    request: str, previous_reply: str, error: str, version: int | None = None
+) -> list[BaseMessage]:
     """Messages for a repair after a reply had no usable code block (R-AG-3)."""
     snippet = previous_reply.strip()[-1500:]
     body = (
-        f"Your previous reply could not be used: {error}.\n\nPrevious reply (end):\n{snippet}\n\n"
+        f"Your previous reply could not be used: {error}.\n\nPrevious reply (end):\n"
+        f"{snippet}\n\n"
         "Reply again with a short explanation and the complete script in exactly one "
         "```python block."
     )
-    return [system_message(), HumanMessage(content=f"{wrap_request(request)}\n\n{body}")]
+    return [system_message(version), HumanMessage(content=f"{wrap_request(request)}\n\n{body}")]

@@ -72,6 +72,7 @@ def build_deps(
         provider=settings.provider,
         model_name=resolve_model(settings),
         timeout_s=settings.timeout_s,
+        prompt_version=settings.prompt_version,
         hooks=list(hooks),
     )
 

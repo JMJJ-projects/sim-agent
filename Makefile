@@ -24,6 +24,17 @@ check: lint test
 sandbox-image:
 	docker build -f sandbox/Dockerfile -t simagent-sandbox .
 
+bench:
+	python scripts/bench.py run
+	python scripts/bench.py promote
+	python scripts/report.py
+
+bench-status:
+	python scripts/bench.py status
+
+report:
+	python scripts/report.py
+
 eval-smoke:
 	python scripts/evaluate.py --provider fake --mode repair --limit 3 --run-name ci-fake-smoke --results-dir runs/ci-results
 
@@ -36,4 +47,4 @@ graph-doc:
 materials:
 	python scripts/build_materials.py
 
-.PHONY: eval-smoke sandbox-image install lint format test test-docker cov check api-doc graph-doc materials
+.PHONY: bench bench-status report eval-smoke sandbox-image install lint format test test-docker cov check api-doc graph-doc materials

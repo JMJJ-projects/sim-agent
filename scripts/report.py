@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
-    summaries = write_report(ROOT / "results", ROOT / "docs")
-    print(f"wrote docs/eval_results.md ({len(summaries)} runs)")
+    n = write_report(ROOT)
+    print(f"wrote docs/eval_results.md ({n} complete runs)")
 
 
 if __name__ == "__main__":

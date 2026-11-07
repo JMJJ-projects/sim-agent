@@ -121,6 +121,10 @@ def test_cost_from_dated_price_table() -> None:
     assert cost_usd(prices, "groq", "m", 2_000_000, 1_000_000) == pytest.approx(2.0)
     assert cost_usd(prices, "groq", "other", 10, 10) is None
     assert cost_usd(prices, "groq", "m", None, 10) is None
+    free = {"models": {"groq/f": {"input_per_mtok": None, "output_per_mtok": None, "note": "n/a"}}}
+    assert cost_usd(free, "groq", "f", 10, 10) is None
+    assert harness.price_note(free, "groq", "f") == "n/a"
+    assert harness.price_note(prices, "groq", "m") is None
 
 
 def test_run_name_is_file_safe() -> None:

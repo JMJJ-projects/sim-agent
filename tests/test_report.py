@@ -4,12 +4,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from simagent.evaluation.report import load_summaries, render_markdown, write_report
+from simagent.evaluation.report import build, write_report
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _write_run(results: Path, provider: str, model: str, mode: str, passed: list[bool]) -> None:
+def _write_run(
+    results: Path, provider: str, model: str, mode: str, passed: list[bool], prompt: int = 2
+) -> None:
     results.mkdir(parents=True, exist_ok=True)
     lines = []
     for i, ok in enumerate(passed):
@@ -19,6 +21,7 @@ def _write_run(results: Path, provider: str, model: str, mode: str, passed: list
             "provider": provider,
             "model": model,
             "mode": mode,
+            "prompt_version": prompt,
             "max_attempts": 1 if mode == "baseline" else 4,
             "status": "solved",
             "passed": ok,
@@ -26,44 +29,103 @@ def _write_run(results: Path, provider: str, model: str, mode: str, passed: list
             "policy_violations": 0,
             "timeouts": 0,
             "latency_s": 10.0 + i,
-            "input_tokens": 1000,
+            "input_tokens": 1000 + i,
             "output_tokens": 200,
             "ttft_s": [0.5],
             "tokens_per_s": [60.0],
             "cost_usd": None,
-            "peak_vram_mib": 2100,
+            "peak_vram_mib": 2100 if provider == "ollama" else None,
         }
         lines.append(json.dumps(rec))
-    name = f"{provider}-{model}-{mode}".replace(":", "_")
+    name = f"{provider}-{model}-p{prompt}-{mode}".replace(":", "_").replace("/", "_")
     (results / f"{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _root(tmp_path: Path) -> Path:
+    data = tmp_path / "data"
+    data.mkdir()
+    plan = {
+        "runs": [
+            {
+                "round": 1,
+                "provider": "ollama",
+                "model": "m3",
+                "prompt_version": 1,
+                "mode": "baseline",
+            },
+            {
+                "round": 1,
+                "provider": "ollama",
+                "model": "m3",
+                "prompt_version": 1,
+                "mode": "repair",
+            },
+            {
+                "round": 2,
+                "provider": "ollama",
+                "model": "m3",
+                "prompt_version": 2,
+                "mode": "repair",
+            },
+            {
+                "round": 2,
+                "provider": "groq",
+                "model": "big/x",
+                "prompt_version": 2,
+                "mode": "repair",
+                "note": "free tier",
+            },
+        ]
+    }
+    (data / "bench_plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    prices = {"models": {"groq/big/x": {"input_per_mtok": None, "note": "n/a: free tier"}}}
+    (data / "prices.json").write_text(json.dumps(prices), encoding="utf-8")
+    return tmp_path
 
 
 def test_committed_report_is_current() -> None:
     """Covers R-EV-7: regenerate with `python scripts/report.py` if this fails."""
-    expected = render_markdown(load_summaries(ROOT / "results"))
+    _, expected = build(ROOT)
     assert (ROOT / "docs" / "eval_results.md").read_text(encoding="utf-8") == expected
 
 
-def test_report_and_chart_from_results(tmp_path: Path) -> None:
-    results, docs = tmp_path / "results", tmp_path / "docs"
-    _write_run(results, "ollama", "qwen2.5-coder:3b", "baseline", [True, False, False, True])
-    _write_run(results, "ollama", "qwen2.5-coder:3b", "repair", [True, True, False, True])
+def test_report_follows_plan_and_marks_missing_runs(tmp_path: Path) -> None:
+    root = _root(tmp_path)
+    results = root / "results"
+    _write_run(results, "ollama", "m3", "baseline", [True, False, False, True], prompt=1)
+    _write_run(results, "ollama", "m3", "repair", [True, True, False, True], prompt=1)
+    _write_run(results, "groq", "big/x", "repair", [True, True], prompt=2)
     _write_run(results, "fake", "scripted", "repair", [True])
-    summaries = write_report(results, docs)
-    assert [s["mode"] for s in summaries] == ["baseline", "repair"]
-    md = (docs / "eval_results.md").read_text(encoding="utf-8")
-    assert "| ollama | `qwen2.5-coder:3b` | baseline | 4 | 50 % (2) |" in md
-    assert "75 % (3)" in md
+    assert write_report(root) == 3
+    md = (root / "docs" / "eval_results.md").read_text(encoding="utf-8")
+    assert "| 1 | ollama | `m3` | v1 | baseline | 4 | 50 % (2/4) |" in md
+    assert "| 2 | ollama | `m3` | v2 | repair | - | not run yet |" in md
+    assert "`big/x` [1] | v2 | repair | 2 | 100 % (2/2)" in md
+    assert "[1] free tier." in md
+    assert "n/a: free tier" in md  # cost note from the price table
+    assert "n/a: local model" in md
+    assert "4,006 / 800" in md  # total tokens in / out
+    assert "1,002 / 200" in md  # per task
+    assert "## Prompt v1 vs v2" in md
+    assert "| ollama | `m3` | repair | 75 % (3/4) | not run yet |" in md
+    assert "<details><summary>groq big/x, prompt v2, repair</summary>" in md
     assert "scripted" not in md
-    assert "2100 MiB" in md
-    assert "n/a" in md  # cost of a local model
-    assert (docs / "eval_chart.png").read_bytes().startswith(b"\x89PNG")
+    assert (root / "docs" / "eval_chart.png").read_bytes().startswith(b"\x89PNG")
 
 
 def test_no_results(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "eval_chart.png").write_bytes(b"old")
-    write_report(tmp_path / "results", docs)
+    assert write_report(tmp_path) == 0
     assert "No benchmark results" in (docs / "eval_results.md").read_text(encoding="utf-8")
     assert not (docs / "eval_chart.png").exists()
+
+
+def test_plan_without_results_lists_every_row(tmp_path: Path) -> None:
+    root = _root(tmp_path)
+    write_report(root)
+    md = (root / "docs" / "eval_results.md").read_text(encoding="utf-8")
+    assert md.count("not run yet") >= 4
+    assert "Round 1 (prompt v1) is not run yet." in md
+    assert not (root / "docs" / "eval_chart.png").exists()

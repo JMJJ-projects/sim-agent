@@ -1,0 +1,15 @@
+{
+  "description": "Planned benchmark runs (PLAN.md Phase 7). scripts/bench.py runs them in order with --resume; the report lists every planned run and marks missing ones as not run yet.",
+  "runs": [
+    {"round": 1, "provider": "ollama", "model": "qwen2.5-coder:3b", "prompt_version": 1, "mode": "baseline", "vram": true},
+    {"round": 1, "provider": "ollama", "model": "qwen2.5-coder:3b", "prompt_version": 1, "mode": "repair", "vram": true},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5-coder:3b", "prompt_version": 2, "mode": "baseline", "vram": true},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5-coder:3b", "prompt_version": 2, "mode": "repair", "vram": true},
+    {"round": 2, "provider": "groq", "model": "openai/gpt-oss-120b", "prompt_version": 2, "mode": "baseline", "delay_s": 30, "note": "Groq free tier (8000 tokens/min); reasoning model: output tokens include hidden reasoning tokens, so its TTFT and tokens/s are not comparable with the local rows"},
+    {"round": 2, "provider": "groq", "model": "openai/gpt-oss-120b", "prompt_version": 2, "mode": "repair", "delay_s": 30, "note": "Groq free tier (8000 tokens/min); reasoning model: output tokens include hidden reasoning tokens, so its TTFT and tokens/s are not comparable with the local rows"},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5-coder:1.5b", "prompt_version": 2, "mode": "baseline", "vram": true},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5-coder:1.5b", "prompt_version": 2, "mode": "repair", "vram": true},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5:3b", "prompt_version": 2, "mode": "baseline", "vram": true},
+    {"round": 2, "provider": "ollama", "model": "qwen2.5:3b", "prompt_version": 2, "mode": "repair", "vram": true}
+  ]
+}

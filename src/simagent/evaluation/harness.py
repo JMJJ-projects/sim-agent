@@ -60,6 +60,13 @@ def fake_reply(task: Task, root: Path) -> str:
     return text
 
 
+def price_note(prices: dict[str, Any], provider: str, model: str) -> str | None:
+    """The price table's note for a model (shown instead of a cost), if any."""
+    entry = (prices.get("models") or {}).get(f"{provider}/{model}")
+    note = entry.get("note") if isinstance(entry, dict) else None
+    return str(note) if note else None
+
+
 def load_prices(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {"models": {}}
@@ -74,6 +81,8 @@ def cost_usd(
     entry = (prices.get("models") or {}).get(f"{provider}/{model}")
     if entry is None or tokens_in is None or tokens_out is None:
         return None
+    if entry.get("input_per_mtok") is None or entry.get("output_per_mtok") is None:
+        return None  # e.g. free tier with no official price: the report shows the entry's note
     return (
         tokens_in * float(entry["input_per_mtok"]) + tokens_out * float(entry["output_per_mtok"])
     ) / 1e6

@@ -1,6 +1,10 @@
 {
-  "description": "USD per million tokens for hosted models, keyed by <provider>/<model>. Fill only from the provider's official pricing page and record the date and URL. Models without an entry get cost_usd = null; local models (ollama) have no API cost.",
-  "retrieved": null,
-  "source": null,
-  "models": {}
+  "description": "USD per million tokens for hosted models, keyed by <provider>/<model>. Fill only from the provider's official pricing page and record the date and URL; never from third-party lists. An entry without prices carries a note shown in the report instead of a cost. Local models (ollama) have no API cost.",
+  "models": {
+    "groq/openai/gpt-oss-120b": {
+      "input_per_mtok": null,
+      "output_per_mtok": null,
+      "note": "n/a: free tier, official pricing unavailable on 2026-11-07"
+    }
+  }
 }

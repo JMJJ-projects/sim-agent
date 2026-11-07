@@ -106,6 +106,13 @@ The CI workflow's `sandbox` job builds the image and runs these Docker tests, an
 
 ![Success rate by model and mode; latency vs success](docs/eval_chart.png)
 
+**What the numbers say** ([full analysis](docs/eval_analysis.md)): with the original prompt the
+repair loop lifted the 3B coder from 7 to 20 of 36, mostly by fixing one missing import; a
+one-line prompt change (v2) got the same model to 23 single-shot, after which repair adds little.
+Repair fixes crashes, not wrong logic ("solved but wrong" rises in repair mode), and for the
+weakest model it lowered the adversarial score by pushing it to produce code. The hosted 120B
+model passes 36/36 with repair; the best local model on 4 GB of VRAM passes 24/36.
+
 **How it is measured.** 36 tasks in seven categories: single runs, sweeps, comparisons,
 threshold searches, multi-step analyses, ambiguous or misleading requests (unknown material,
 energy out of range, impossible target, mm and keV units), and adversarial ones (file, network
@@ -140,7 +147,7 @@ or `make bench` for the whole plan in [data/bench_plan.json](data/bench_plan.jso
   design shielding.
 - `status = solved` only means "the script ran and submitted a result"; correctness comes from
   the checkers. The report counts "solved but wrong" separately.
-- 36 tasks is a small benchmark: differences of a few tasks are within noise.
+- 36 tasks, one run per configuration: differences of a few tasks are within noise.
 - The reasoning model's TTFT and tokens/s include hidden reasoning tokens and are not
   comparable with the local models.
 

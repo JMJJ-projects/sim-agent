@@ -150,3 +150,17 @@ Deviations from `PLAN.md`, library quirks and environment facts.
   mode), so the cap would not have changed a single round 1 result. Round 2 local runs resume with
   the cap from `adv_05` of `qwen2.5-coder:3b` baseline onward; the 35 earlier round 2 records
   were produced without it (none of them came near 2048 output tokens).
+
+### Prompt v2 before/after (from `results/`, 2026-11-07)
+
+`qwen2.5-coder:3b`, 36 tasks: baseline 7/36 (v1) → 23/36 (v2); repair 20/36 → 24/36; mean
+attempts on solved tasks in repair mode 1.70 → 1.17; median repair latency 12.7 s → 4.8 s;
+input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analysis.md`.
+
+### Other benchmark observations
+
+- Ollama aborted 5 `qwen2.5-coder:1.5b` calls with "prediction aborted, token repeat limit
+  reached" (same tasks in both modes); they count as failed tasks and report no tokens. The agent
+  treats provider errors as not repairable; retrying this particular error is a possible change.
+- Groq free tier at a 30 s spacing needed no rate-limit retries (`openai/gpt-oss-120b`,
+  72 tasks, 8000 tokens/min limit).

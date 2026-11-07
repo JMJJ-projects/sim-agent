@@ -1,0 +1,292 @@
+"""Resumable evaluation runner (R-EV-5).
+
+For every task: a fresh agent run (baseline = ``max_attempts=1``, repair = the full loop), the
+deterministic checker against the reference result, and one JSON line appended to
+``results/<run-name>.jsonl``. Lines are flushed one by one, so an interrupted run resumes with
+``--resume``. Per-task artifacts go to ``runs/eval/<run-name>/<task-id>/`` (gitignored).
+
+The evaluation always uses the Docker sandbox; the unsafe local runner is rejected (R-SBX-8).
+With ``--provider fake`` each task's scripted reply is its own reference solution: this proves
+the harness end to end and says nothing about model accuracy (R-EV-8).
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+from langchain_core.language_models import BaseChatModel
+
+from simagent.artifacts import ArtifactWriter
+from simagent.config import ConfigError
+from simagent.evaluation.checkers import CheckInput, needs_expected, run_checker
+from simagent.evaluation.tasks import Task
+from simagent.graph import solve
+from simagent.llm import ScriptedChatModel
+from simagent.nodes import AgentDeps, AttemptHook
+from simagent.runners.base import Runner
+from simagent.runners.local import LocalRunner
+from simagent.state import AgentState, AttemptRecord, FinalAnswer
+
+MODES = ("baseline", "repair")
+
+
+def run_name_for(provider: str, model: str, mode: str) -> str:
+    """Default run name, safe as a file name: ``<provider>-<model>-<mode>``."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", f"{provider}-{model}-{mode}")
+
+
+def fake_reply(task: Task, root: Path) -> str:
+    """Scripted reply for the fake provider: the task's reference solution."""
+    text = (root / task.reference).read_text(encoding="utf-8")
+    if task.runs_reference:
+        return f"Reference solution for {task.id}.\n\n```python\n{text.rstrip()}\n```\n"
+    return text
+
+
+def load_prices(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {"models": {}}
+    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    return data
+
+
+def cost_usd(
+    prices: dict[str, Any], provider: str, model: str, tokens_in: int | None, tokens_out: int | None
+) -> float | None:
+    """Estimated cost from the dated price table; None when no price or tokens are unknown."""
+    entry = (prices.get("models") or {}).get(f"{provider}/{model}")
+    if entry is None or tokens_in is None or tokens_out is None:
+        return None
+    return (
+        tokens_in * float(entry["input_per_mtok"]) + tokens_out * float(entry["output_per_mtok"])
+    ) / 1e6
+
+
+class VramSampler:
+    """Samples GPU memory use with nvidia-smi on a thread; ``peak_mib`` is None if unavailable."""
+
+    def __init__(self, interval_s: float = 0.5) -> None:
+        self.interval_s = interval_s
+        self.exe = shutil.which("nvidia-smi")
+        self.peak_mib: int | None = None
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _sample(self) -> int | None:
+        assert self.exe is not None
+        try:
+            out = subprocess.run(
+                [self.exe, "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        values = [int(v) for v in out.stdout.split() if v.strip().isdigit()]
+        return max(values) if values else None
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            value = self._sample()
+            if value is not None:
+                self.peak_mib = value if self.peak_mib is None else max(self.peak_mib, value)
+            self._stop.wait(self.interval_s)
+
+    def __enter__(self) -> VramSampler:
+        if self.exe is not None:
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=10)
+
+
+@dataclass
+class _Collector(AttemptHook):
+    attempts: list[AttemptRecord] = field(default_factory=list)
+
+    def on_attempt(self, attempt: AttemptRecord) -> None:
+        self.attempts.append(attempt)
+
+    def on_final(self, state: AgentState, final: FinalAnswer) -> None:
+        pass
+
+
+@dataclass
+class EvalConfig:
+    provider: str
+    model: str
+    mode: str
+    results_dir: Path
+    runs_dir: Path
+    max_attempts: int = 4
+    run_name: str | None = None
+    limit: int | None = None
+    resume: bool = False
+    timeout_s: float = 60.0
+    sample_vram: bool = False
+    prices: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def name(self) -> str:
+        return self.run_name or run_name_for(self.provider, self.model, self.mode)
+
+    @property
+    def attempts_for_mode(self) -> int:
+        return 1 if self.mode == "baseline" else self.max_attempts
+
+    @property
+    def results_path(self) -> Path:
+        return self.results_dir / f"{self.name}.jsonl"
+
+    @property
+    def summary_path(self) -> Path:
+        return self.results_dir / f"{self.name}.summary.json"
+
+
+def done_task_ids(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    ids = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            ids.add(json.loads(line)["task_id"])
+    return ids
+
+
+def evaluate_task(
+    task: Task,
+    cfg: EvalConfig,
+    model: BaseChatModel,
+    runner: Runner,
+    expected: dict[str, Any],
+) -> dict[str, Any]:
+    """Run the agent on one task and score it."""
+    collector = _Collector()
+    writer = ArtifactWriter(
+        cfg.runs_dir / cfg.name / task.id,
+        {"provider": cfg.provider, "model": cfg.model, "mode": cfg.mode, "task_id": task.id},
+    )
+    deps = AgentDeps(
+        model=model,
+        runner=runner,
+        provider=cfg.provider,
+        model_name=cfg.model,
+        timeout_s=cfg.timeout_s,
+        hooks=[collector, writer],
+    )
+    sampler = VramSampler() if cfg.sample_vram else None
+    start = time.perf_counter()
+    error: str | None = None
+    final: FinalAnswer | None = None
+    try:
+        if sampler is not None:
+            with sampler:
+                final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode)
+        else:
+            final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode)
+    except Exception as exc:  # recorded as a failed task; the run goes on
+        error = f"{type(exc).__name__}: {exc}"
+    latency = time.perf_counter() - start
+
+    attempts = collector.attempts
+    executed = any(a["run"] is not None for a in attempts)
+    status = final["status"] if final is not None else "error"
+    result = (
+        {"answer": final["answer"], "data": final["data"]}
+        if final is not None and status == "solved"
+        else None
+    )
+    ref = expected.get(task.id, {}).get("result")
+    if needs_expected(task.checker) and ref is None:
+        raise ConfigError(f"no expected result for {task.id}; run scripts/make_expected.py")
+    outcome = run_checker(task.checker, CheckInput(status, result, executed), ref)
+    metrics = final["metrics"] if final is not None else {}
+    tokens_in = metrics.get("input_tokens")
+    tokens_out = metrics.get("output_tokens")
+    return {
+        "task_id": task.id,
+        "category": task.category,
+        "provider": cfg.provider,
+        "model": cfg.model,
+        "mode": cfg.mode,
+        "max_attempts": cfg.attempts_for_mode,
+        "status": status,
+        "passed": outcome.passed,
+        "check_reason": outcome.reason,
+        "attempts": len(attempts),
+        "attempt_outcomes": [a["outcome"] for a in attempts],
+        "errors": [a["error"] for a in attempts],
+        "harness_error": error,
+        "policy_violations": sum(a["outcome"] == "policy_violation" for a in attempts),
+        "timeouts": sum(bool(a["run"] and a["run"]["timed_out"]) for a in attempts),
+        "answer": final["answer"] if final is not None else None,
+        "latency_s": round(latency, 3),
+        "model_s": round(sum(a["model_s"] for a in attempts), 3),
+        "run_s": round(sum(a["run_s"] for a in attempts), 3),
+        "input_tokens": tokens_in,
+        "output_tokens": tokens_out,
+        "ttft_s": metrics.get("ttft_s", []),
+        "tokens_per_s": metrics.get("tokens_per_s", []),
+        "cost_usd": cost_usd(cfg.prices, cfg.provider, cfg.model, tokens_in, tokens_out),
+        "peak_vram_mib": sampler.peak_mib if sampler is not None else None,
+        "run_dir": writer.dir.as_posix(),
+        "finished_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+
+def run_eval(
+    cfg: EvalConfig,
+    tasks: list[Task],
+    expected: dict[str, Any],
+    runner: Runner,
+    model_for: Callable[[Task], BaseChatModel],
+    progress: Callable[[dict[str, Any]], None] | None = None,
+) -> list[dict[str, Any]]:
+    """Evaluate ``tasks`` (first ``cfg.limit``), one appended line per task; returns new records."""
+    if isinstance(runner, LocalRunner):
+        raise ConfigError("the evaluation never uses the unsafe local runner")
+    if cfg.mode not in MODES:
+        raise ConfigError(f"mode must be one of {MODES}")
+    path = cfg.results_path
+    if path.exists() and not cfg.resume:
+        raise ConfigError(f"{path} exists; pass --resume to continue it or use another --run-name")
+    done = done_task_ids(path)
+    selected = tasks[: cfg.limit] if cfg.limit else tasks
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new: list[dict[str, Any]] = []
+    with path.open("a", encoding="utf-8", newline="\n") as fh:
+        for task in selected:
+            if task.id in done:
+                continue
+            record = evaluate_task(task, cfg, model_for(task), runner, expected)
+            fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+            fh.flush()
+            new.append(record)
+            if progress is not None:
+                progress(record)
+    return new
+
+
+def fake_model_factory(root: Path) -> Callable[[Task], BaseChatModel]:
+    """One scripted model per task, replying with the task's reference."""
+
+    def factory(task: Task) -> BaseChatModel:
+        return ScriptedChatModel(replies=[fake_reply(task, root)])
+
+    return factory

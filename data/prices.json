@@ -1,0 +1,6 @@
+{
+  "description": "USD per million tokens for hosted models, keyed by <provider>/<model>. Fill only from the provider's official pricing page and record the date and URL. Models without an entry get cost_usd = null; local models (ollama) have no API cost.",
+  "retrieved": null,
+  "source": null,
+  "models": {}
+}

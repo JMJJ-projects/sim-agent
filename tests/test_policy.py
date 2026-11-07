@@ -116,3 +116,90 @@ def test_violations_are_sorted_and_deduplicated() -> None:
     assert lines == sorted(lines)
     assert len(result.violations) == 3
     assert str(result.violations[0]).startswith("line 1:")
+
+
+BYPASSES = [
+    "import matplotlib\nmatplotlib.subprocess.run(['id'])\n",
+    "import matplotlib\nmatplotlib.os.remove('/tmp/x')\n",
+    "import matplotlib\nmatplotlib.sys.modules\n",
+    "import matplotlib.pyplot as plt\nplt.matplotlib.os.system('id')\n",
+    "import numpy as np\nnp.sys.exit(0)\n",
+    "import json\njson.decoder.re\njson.sys\n",
+    "from matplotlib import os\n",
+    "from matplotlib import subprocess\n",
+    "import matplotlib\ngetattr(matplotlib, 'os')\n",
+]
+
+
+@pytest.mark.parametrize("code", BYPASSES)
+def test_module_reexport_bypasses_are_rejected(code: str) -> None:
+    """Covers R-POL-3: dangerous modules re-exported as attributes of allowed modules."""
+    assert not check(code).ok
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "os",
+        "sys",
+        "subprocess",
+        "shutil",
+        "socket",
+        "pathlib",
+        "importlib",
+        "builtins",
+        "pickle",
+        "tempfile",
+        "io",
+    ],
+)
+def test_each_forbidden_module_attribute(name: str) -> None:
+    """Covers R-POL-3: each module name is rejected as an attribute, from-import and getattr."""
+    for code in [
+        f"import matplotlib\nmatplotlib.{name}\n",
+        f"from numpy import {name}\n",
+        f"import numpy\ngetattr(numpy, '{name}')\n",
+    ]:
+        result = check(code)
+        assert not result.ok, code
+    assert "may not be reached" in check(f"import numpy\nnumpy.{name}\n").feedback()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "execv",
+        "execve",
+        "execl",
+        "execle",
+        "execlp",
+        "execlpe",
+        "execvp",
+        "execvpe",
+        "spawnl",
+        "spawnle",
+        "spawnlp",
+        "spawnlpe",
+        "spawnv",
+        "spawnve",
+        "spawnvp",
+        "spawnvpe",
+        "posix_spawn",
+        "posix_spawnp",
+        "fork",
+        "forkpty",
+    ],
+)
+def test_process_family_attributes_rejected(name: str) -> None:
+    """Covers R-POL-3: os.exec*/spawn*/fork families via any object."""
+    result = check(f"import matplotlib\nm = matplotlib\nm.x.{name}('/bin/sh')\n")
+    assert not result.ok
+    assert "process creation" in result.feedback() or "may not be reached" in result.feedback()
+
+
+def test_ordinary_attributes_still_allowed() -> None:
+    code = (
+        "import numpy as np\nimport matplotlib.pyplot as plt\n"
+        "x = np.linspace(0, 1, 5)\nplt.plot(x, x)\nexecuted = x.sum()\nforks = 2\n"
+    )
+    assert check(code).ok

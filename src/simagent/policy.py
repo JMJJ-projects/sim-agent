@@ -67,10 +67,48 @@ FORBIDDEN_ATTRIBUTES: frozenset[str] = frozenset(
     }
 )
 
+# Modules that allowed modules re-export as attributes (e.g. `matplotlib.os`,
+# `matplotlib.subprocess`, `numpy.sys`). Reaching them through an attribute would bypass the
+# import allow-list, so the attribute names themselves are rejected.
+FORBIDDEN_MODULE_ATTRIBUTES: frozenset[str] = frozenset(
+    {
+        "os",
+        "sys",
+        "subprocess",
+        "shutil",
+        "socket",
+        "pathlib",
+        "importlib",
+        "builtins",
+        "pickle",
+        "tempfile",
+        "io",
+    }
+)
+
+# Process-replacing and process-creating functions: os.exec*, os.spawn*, os.posix_spawn*, fork.
+_PROCESS_ATTRIBUTE = re.compile(
+    r"^(exec[lv]p?e?|spawn[lv]p?e?|posix_spawnp?|fork|forkpty|vfork|startfile)$"
+)
+
 ALLOWED_DUNDER_NAMES: frozenset[str] = frozenset({"__name__"})
 
 _DUNDER = re.compile(r"^__\w+__$")
 _FORMAT_DUNDER = re.compile(r"\{[^{}]*\.__\w+__")
+
+
+def forbidden_attribute(name: str) -> str | None:
+    """Why the attribute ``name`` is forbidden, or None if it is allowed."""
+    if name in FORBIDDEN_MODULE_ATTRIBUTES:
+        return (
+            f"`.{name}` is not allowed: modules such as {name} may not be reached through "
+            "another module's attributes"
+        )
+    if _PROCESS_ATTRIBUTE.match(name):
+        return f"`.{name}` is not allowed (process creation)"
+    if name in FORBIDDEN_ATTRIBUTES:
+        return f"`.{name}` is not allowed (file, process or native access)"
+    return None
 
 
 @dataclass(frozen=True)
@@ -139,7 +177,7 @@ class _Checker(ast.NodeVisitor):
         for alias in node.names:
             if alias.name == "*":
                 self._add(node, f"`from {module} import *` is not allowed; import names explicitly")
-            elif alias.name in FORBIDDEN_ATTRIBUTES or _DUNDER.match(alias.name):
+            elif forbidden_attribute(alias.name) or _DUNDER.match(alias.name):
                 self._add(node, f"importing `{alias.name}` from `{module}` is not allowed")
         self.generic_visit(node)
 
@@ -171,14 +209,14 @@ class _Checker(ast.NodeVisitor):
             self._add(
                 node, f"`{name}()` needs a literal attribute name; use normal attribute access"
             )
-        elif _DUNDER.match(attr.value) or attr.value in FORBIDDEN_ATTRIBUTES:
+        elif _DUNDER.match(attr.value) or forbidden_attribute(attr.value):
             self._add(node, f"`{name}()` on `{attr.value}` is not allowed")
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if _DUNDER.match(node.attr) and node.attr not in ALLOWED_DUNDER_NAMES:
             self._add(node, f"access to dunder attribute `{node.attr}` is not allowed")
-        elif node.attr in FORBIDDEN_ATTRIBUTES:
-            self._add(node, f"`.{node.attr}` is not allowed (file, process or native access)")
+        elif reason := forbidden_attribute(node.attr):
+            self._add(node, reason)
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:

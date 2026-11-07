@@ -93,3 +93,25 @@ def test_latest_tag_matches_bare_name(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_hosted_provider_skips_ollama_check() -> None:
     agent.check_model(Settings.from_env(provider="groq", model="m"))
+
+
+def test_render_demo_from_recorded_run(tmp_path: Path) -> None:
+    """The demo SVG is rendered from a saved run's artifacts (PLAN 8.1)."""
+    import importlib.util
+
+    res = cli.invoke(app, ["solve", REQ, "--provider", "fake", "--unsafe-local", "--json"])
+    assert res.exit_code == 0, res.output
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "render_demo", root / "scripts" / "render_demo.py"
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    out = tmp_path / "demo.svg"
+    assert mod.main(["--search", str(tmp_path / "runs"), "--out", str(out)]) == 0
+    svg = out.read_text(encoding="utf-8")
+    assert svg.startswith("<svg")
+    assert "H2O" in svg
+    assert mod.main(["--search", str(tmp_path / "nothing"), "--out", str(out)]) == 2

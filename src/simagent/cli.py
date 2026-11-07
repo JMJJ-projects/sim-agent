@@ -179,7 +179,9 @@ def _error_summary(text: str | None, width: int = 110) -> str:
     return line if len(line) <= width else line[: width - 3] + "..."
 
 
-def _print_final(final: FinalAnswer, run_dir: Path | None) -> None:
+def print_final(final: FinalAnswer, run_dir: Path | None, console: Console | None = None) -> None:
+    """Rich summary of a final answer (also used by scripts/render_demo.py)."""
+    con = console or out
     status = final["status"]
     style = {"solved": "green", "refused": "yellow"}.get(status, "red")
     grid = Table.grid(padding=(0, 2))
@@ -196,7 +198,7 @@ def _print_final(final: FinalAnswer, run_dir: Path | None) -> None:
     if final["files"]:
         where = f" (saved under {run_dir})" if run_dir else ""
         grid.add_row("files", ", ".join(sorted(final["files"])) + where)
-    out.print(Panel(grid, title=f"simagent solve: {final['request'][:60]}", border_style=style))
+    con.print(Panel(grid, title=f"simagent solve: {final['request'][:60]}", border_style=style))
 
     table = Table(title="attempts", show_lines=False)
     table.add_column("#")
@@ -208,9 +210,9 @@ def _print_final(final: FinalAnswer, run_dir: Path | None) -> None:
         f"model {calls['model_s']:.1f} s, sandbox {calls['run_s']:.1f} s, "
         f"tokens in/out {_tok(calls['input_tokens'])}/{_tok(calls['output_tokens'])}"
     )
-    out.print(table)
+    con.print(table)
     if final["final_script"]:
-        out.print(Panel(Syntax(final["final_script"], "python", line_numbers=True), title="script"))
+        con.print(Panel(Syntax(final["final_script"], "python", line_numbers=True), title="script"))
 
 
 @app.command()
@@ -249,7 +251,7 @@ def solve(
     if as_json:
         typer.echo(json.dumps(_final_json(final, run_dir), indent=2, default=str))
     else:
-        _print_final(final, run_dir)
+        print_final(final, run_dir)
     raise typer.Exit(EXIT_OK if final["status"] == "solved" else EXIT_NOT_SOLVED)
 
 

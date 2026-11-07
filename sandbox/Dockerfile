@@ -23,6 +23,7 @@ RUN pip install --only-binary=:all: --no-deps -r /tmp/requirements.txt \
 # (isolated mode: ignores PYTHON* variables and the user site) still finds them.
 COPY src/photonsim /usr/local/lib/python3.12/site-packages/photonsim
 COPY src/simagent/io_helper/simagent_io.py /usr/local/lib/python3.12/site-packages/simagent_io.py
+COPY sandbox/launch.py /opt/simagent/launch.py
 RUN python -m compileall -q /usr/local/lib/python3.12/site-packages/photonsim \
         /usr/local/lib/python3.12/site-packages/simagent_io.py \
     && python -c "import photonsim, simagent_io, numpy, matplotlib.pyplot"
@@ -38,5 +39,5 @@ WORKDIR /tmp
 LABEL org.opencontainers.image.title="simagent-sandbox" \
       org.opencontainers.image.description="Locked-down runtime for generated photonsim scripts"
 
-ENTRYPOINT ["python", "-I", "-B"]
-CMD ["/sandbox/script.py"]
+# DockerRunner passes a per-run nonce as the only argument.
+ENTRYPOINT ["python", "-I", "-B", "/opt/simagent/launch.py"]

@@ -1,6 +1,7 @@
 # Only what the sandbox image needs; keeps .env, .git and .venv out of the build context.
 *
 !sandbox/requirements.txt
+!sandbox/launch.py
 !src/photonsim/
 !src/simagent/io_helper/simagent_io.py
 **/__pycache__

@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -25,6 +25,12 @@ from simagent.state import AgentState, AttemptKind, AttemptRecord, FinalAnswer, 
 
 STDERR_TAIL_LINES = 40
 STDOUT_TAIL_LINES = 10
+
+
+class NodeFn(Protocol):
+    """A graph node: takes the state, returns a partial update."""
+
+    def __call__(self, state: AgentState) -> dict[str, Any]: ...
 
 
 class AttemptHook:
@@ -116,7 +122,7 @@ def summarise_metrics(attempts: list[AttemptRecord]) -> dict[str, Any]:
     }
 
 
-def make_nodes(deps: AgentDeps) -> dict[str, Callable[[AgentState], dict[str, Any]]]:
+def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
     """Build the node functions with ``deps`` bound."""
 
     def _call_model(

@@ -2,7 +2,7 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
-## Status: Phase 5 (evaluation harness) next (2026-11-07)
+## Status: Phase 6 (MCP server) next (2026-11-07)
 
 Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
 
@@ -67,11 +67,24 @@ Takeaways: the repair loop fixes the recurring small-model bug (missing import) 
 does not fix logic errors, and `solved` only means "ran and submitted a result", so correctness
 must come from the Phase 5 checkers. Timing: 15–35 s wall per request, 3–7k input tokens.
 
+- **Phase 5, evaluation harness:** deterministic checkers (numeric with MC tolerance, lists,
+  equals/in_set, threshold, keys, must_refuse, reports_error, all/any); 36 tasks + reference
+  scripts; expected values generated in the sandbox; resumable `scripts/evaluate.py` (JSONL per
+  task, per-task artifacts, VRAM sampler, warm-up); `scripts/report.py` → `docs/eval_results.md`
+  + chart; CI smoke eval with the fake provider. Exit check: a 3-task real run with
+  `qwen2.5-coder:3b` produced a report (baseline 0/3, repair 3/3; details in NOTES.md).
+
 ## Next
 
-- Phase 5: checkers, task set + reference scripts, generated expected values, resumable
-  evaluation runner, report + chart, CI smoke eval.
+- Phase 6: MCP server (`describe_simulator`, `run_simulation_script`, `solve`), in-process
+  client tests, `simagent mcp`, `docs/mcp.md`. Then stop at Checkpoint B.
 
 ## Open questions
 
-- None.
+- **Prompt change before the benchmark?** In every local run so far, `qwen2.5-coder:3b` forgets
+  `import simagent_io` on the first attempt (baseline 0/3 on the 3-task check). A general change,
+  e.g. telling the model to start every script with `import photonsim as ps` and
+  `import simagent_io` (not task-specific), would likely raise baseline scores a lot and shrink
+  the repair loop's apparent benefit. Options: (a) benchmark the current prompt as is, (b) make
+  the change first and log before/after numbers in NOTES.md, (c) run both as two prompt versions.
+  Decide at Checkpoint B.

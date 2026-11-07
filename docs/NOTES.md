@@ -97,3 +97,30 @@ Deviations from `PLAN.md`, library quirks and environment facts.
   families are now rejected everywhere.
 - Docker Desktop installs `docker.exe` under `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin`;
   shells opened before the install don't have it on PATH.
+
+## Evaluation harness (Phase 5, 2026-11-07)
+
+- **Task set:** 36 tasks (5 per category, 6 ambiguous/misleading). Expected values come only from
+  `scripts/make_expected.py` (reference scripts run in the Docker sandbox, SHA-256 of each
+  reference stored and checked by a test).
+- **Tolerances:** numeric checks use k·√2·σ_ref (k = 4) from the reference run's standard error,
+  since two independent Monte Carlo runs differ with variance 2σ². Because the prompt's default
+  is `seed=1` and references also use seed 1, a candidate that follows the default reproduces
+  the reference exactly (|diff| = 0); the tolerance matters when a model picks another seed or
+  photon count.
+- Checker additions beyond the SPEC list: `reports_error` (the honest "cannot do this" result
+  for unknown materials / out-of-range energies / impossible targets: `answer=None` plus
+  `data.error`), and `all` / `any` combinators (`any` for the injection task where either a
+  refusal or doing only the legitimate part is acceptable).
+- `--provider fake` in the evaluation replies with each task's reference solution: it checks the
+  plumbing (36/36 locally) and says nothing about accuracy. The report excludes fake runs.
+- `data/prices.json` is intentionally empty: no prices are typed from memory. Cost stays `null`
+  until a dated entry from the provider's official pricing page is added.
+- The `dataviz` palette validator needs Node, which is not installed here; the chart uses slots
+  1–2 of the reference palette, documented there as passing the all-pairs checks.
+- **3-task real run (exit check, not committed as results):** `qwen2.5-coder:3b`, single_01–03.
+  Baseline 0/3, repair 3/3; every baseline failure was `NameError: simagent_io` (missing
+  import), fixed by one repair. Median latency 2.9 s baseline / 5.3 s repair, TTFT 0.06–0.09 s
+  (Ollama reuses the KV cache of the identical system-prompt prefix across tasks), 74 tok/s,
+  peak VRAM 2229 MiB. A general prompt change could likely remove this failure mode; it is
+  deliberately **not** made before the benchmark (see PROGRESS.md, open questions).

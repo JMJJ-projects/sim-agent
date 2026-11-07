@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from simagent.policy import PolicyResult, check
 from simagent.runners.base import DEFAULT_TIMEOUT_S, Runner, RunResult
@@ -18,6 +19,30 @@ class Execution:
     @property
     def ok(self) -> bool:
         return self.policy.ok and self.run is not None and self.run.ok
+
+    def to_dict(self, *, include_files: bool = False) -> dict[str, Any]:
+        """JSON-friendly report. PNG files are listed by name unless ``include_files``."""
+        run = self.run
+        report: dict[str, Any] = {
+            "ok": self.ok,
+            "failure": self.failure,
+            "policy_violations": [str(v) for v in self.policy.violations],
+            "run": None,
+        }
+        if run is not None:
+            report["run"] = {
+                "runner": run.runner,
+                "exit_code": run.exit_code,
+                "timed_out": run.timed_out,
+                "duration_s": round(run.duration_s, 3),
+                "result": run.result_json,
+                "result_error": run.result_error,
+                "stdout": run.stdout,
+                "stderr": run.stderr,
+                "files": dict(run.files) if include_files else sorted(run.files),
+                "warnings": run.warnings,
+            }
+        return report
 
     @property
     def failure(self) -> str | None:

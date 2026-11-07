@@ -72,27 +72,6 @@ def version() -> None:
     typer.echo(__version__)
 
 
-def _execution_dict(ex: Execution) -> dict[str, Any]:
-    run = ex.run
-    return {
-        "ok": ex.ok,
-        "failure": ex.failure,
-        "policy_violations": [str(v) for v in ex.policy.violations],
-        "run": None
-        if run is None
-        else {
-            "runner": run.runner,
-            "exit_code": run.exit_code,
-            "timed_out": run.timed_out,
-            "duration_s": round(run.duration_s, 3),
-            "result": run.result_json,
-            "result_error": run.result_error,
-            "stdout": run.stdout,
-            "stderr": run.stderr,
-        },
-    }
-
-
 def _print_execution(ex: Execution) -> None:
     if not ex.policy.ok:
         out.print(Panel(ex.policy.feedback(), title="policy: rejected", border_style="red"))
@@ -134,7 +113,7 @@ def run_script(
     runner = make_runner(unsafe_local=unsafe_local, limits=settings.limits)
     ex = execute(code, runner, timeout_s=settings.timeout_s)
     if as_json:
-        typer.echo(json.dumps(_execution_dict(ex), indent=2))
+        typer.echo(json.dumps(ex.to_dict(), indent=2))
     else:
         if ex.run is not None and ex.run.warnings:
             for w in ex.run.warnings:

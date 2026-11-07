@@ -48,6 +48,7 @@ class RunResult:
     result_error: str | None = None
     runner: str = ""
     warnings: list[str] = field(default_factory=list)
+    files: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -122,16 +123,57 @@ class TailReader:
         return text
 
 
-def split_result(stdout: str, nonce: str) -> tuple[str, dict[str, Any] | None, str | None]:
-    """Split launcher output into (script stdout, result dict, result error)."""
+@dataclass(frozen=True)
+class Collected:
+    """What a run left behind: the parsed result.json and small PNG files (base64)."""
+
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    files: dict[str, str] = field(default_factory=dict)
+    skipped_files: list[str] = field(default_factory=list)
+
+    @property
+    def warnings(self) -> list[str]:
+        if not self.skipped_files:
+            return []
+        names = ", ".join(self.skipped_files)
+        return [f"files in /out not returned (not PNG, or over the 1 MB total): {names}"]
+
+
+def split_output(stdout: str, nonce: str) -> tuple[str, Collected | None]:
+    """Split launcher output into (script stdout, collected envelope or None if absent)."""
     marker = f"\n{RESULT_MARKER}{nonce}>>>\n"
     stdout = stdout.replace("\r\n", "\n")
     idx = stdout.rfind(marker)
     if idx < 0:
-        return stdout, None, None
-    body = stdout[idx + len(marker) :]
-    before = stdout[:idx]
-    return before, *parse_result(body)
+        return stdout, None
+    return stdout[:idx], parse_envelope(stdout[idx + len(marker) :])
+
+
+def parse_envelope(text: str) -> Collected:
+    """Parse the launcher's JSON envelope (see ``simagent.io_helper.launch``)."""
+    try:
+        env = json.loads(text)
+    except json.JSONDecodeError:
+        return Collected(error="the sandbox launcher output could not be parsed")
+    if not isinstance(env, dict):
+        return Collected(error="the sandbox launcher output could not be parsed")
+    return from_envelope(env)
+
+
+def from_envelope(env: dict[str, Any]) -> Collected:
+    """Build ``Collected`` from an envelope dict."""
+    files_raw = env.get("files") or {}
+    files = {str(k): str(v) for k, v in files_raw.items()} if isinstance(files_raw, dict) else {}
+    skipped = [str(x) for x in env.get("skipped_files") or []]
+    if env.get("result_too_large"):
+        error: str | None = f"result.json is larger than {MAX_RESULT_BYTES} bytes"
+        return Collected(error=error, files=files, skipped_files=skipped)
+    text = env.get("result_text")
+    if not isinstance(text, str):
+        return Collected(files=files, skipped_files=skipped)
+    result, error = parse_result(text)
+    return Collected(result=result, error=error, files=files, skipped_files=skipped)
 
 
 def parse_result(text: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -142,8 +184,6 @@ def parse_result(text: str) -> tuple[dict[str, Any] | None, str | None]:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         return None, f"result.json is not valid JSON: {exc.msg}"
-    if isinstance(data, dict) and "__too_large__" in data:
-        return None, f"result.json is larger than {MAX_RESULT_BYTES} bytes"
     if not isinstance(data, dict) or "answer" not in data:
         return None, "result.json must be an object with an 'answer' key (use simagent_io.submit)"
     return data, None

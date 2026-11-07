@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import photonsim
+from simagent.io_helper.launch import envelope
 from simagent.runners.base import (
     DEFAULT_TIMEOUT_S,
     Runner,
@@ -24,7 +25,7 @@ from simagent.runners.base import (
     SandboxLimits,
     TailReader,
     cap_text,
-    parse_result,
+    from_envelope,
 )
 
 ENV_FLAG = "SIMAGENT_UNSAFE_LOCAL"
@@ -100,22 +101,18 @@ class LocalRunner(Runner):
                 exit_code = proc.wait()
             duration = time.monotonic() - start
             stdout, stderr = out.text(), err.text()
-            result_path = out_dir / "result.json"
-            result, result_error = (
-                parse_result(result_path.read_text(encoding="utf-8"))
-                if result_path.is_file()
-                else (None, None)
-            )
+            collected = from_envelope(envelope(out_dir))
         if timed_out:
             stderr += f"\n[killed after the {timeout_s:g} s time limit]"
         return RunResult(
             exit_code=exit_code,
             stdout=cap_text(stdout.replace("\r\n", "\n"), self.limits.output_cap),
             stderr=cap_text(stderr.replace("\r\n", "\n"), self.limits.output_cap),
-            result_json=result,
+            result_json=collected.result,
             timed_out=timed_out,
             duration_s=duration,
-            result_error=result_error,
+            result_error=collected.error,
             runner=self.name,
-            warnings=[WARNING],
+            warnings=[WARNING, *collected.warnings],
+            files=collected.files,
         )

@@ -13,22 +13,25 @@ import tempfile
 import time
 from pathlib import Path
 
+from simagent.io_helper.launch import MAX_FILES_BYTES
 from simagent.runners.base import (
     DEFAULT_TIMEOUT_S,
     MAX_RESULT_BYTES,
+    Collected,
     Runner,
     RunnerUnavailableError,
     RunResult,
     SandboxLimits,
     TailReader,
     cap_text,
-    split_result,
+    split_output,
 )
 
 IMAGE = "simagent-sandbox"
 SANDBOX_UID = 10001
-# Keep enough raw stdout to recover a full result.json printed after the script's output.
-_RAW_STDOUT_LIMIT = MAX_RESULT_BYTES + 256 * 1024
+# Keep enough raw stdout to recover the launcher envelope printed after the script's output:
+# result.json (<= 1 MB) plus base64 PNGs (<= 1 MB raw, ~1.34 MB encoded) plus slack.
+_RAW_STDOUT_LIMIT = MAX_RESULT_BYTES + MAX_FILES_BYTES * 4 // 3 + 512 * 1024
 _DAEMON_ERRORS = ("Cannot connect to the Docker daemon", "error during connect")
 
 
@@ -161,7 +164,8 @@ class DockerRunner(Runner):
             raise RunnerUnavailableError(
                 "the Docker daemon is not reachable; start Docker Desktop / dockerd"
             )
-        stdout, result, result_error = split_result(raw_stdout, nonce)
+        stdout, collected = split_output(raw_stdout, nonce)
+        collected = collected or Collected()
         if timed_out:
             stderr += f"\n[killed after the {timeout_s:g} s time limit]"
         elif exit_code == 137:
@@ -172,11 +176,13 @@ class DockerRunner(Runner):
             exit_code=exit_code,
             stdout=cap_text(stdout, self.limits.output_cap),
             stderr=cap_text(stderr, self.limits.output_cap),
-            result_json=result,
+            result_json=collected.result,
             timed_out=timed_out,
             duration_s=duration,
-            result_error=result_error,
+            result_error=collected.error,
             runner=self.name,
+            warnings=collected.warnings,
+            files=collected.files,
         )
 
     @staticmethod

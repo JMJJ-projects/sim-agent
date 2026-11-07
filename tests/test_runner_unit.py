@@ -1,14 +1,17 @@
 """Docker-free tests for the runner layer (command line, parsing, caps, run flow)."""
 
+import base64
 import io
+import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
+from simagent.io_helper import launch
 from simagent.runners import base, docker
-from simagent.runners.base import RunResult, SandboxLimits, cap_text, split_result
+from simagent.runners.base import RunResult, SandboxLimits, cap_text, split_output
 from simagent.runners.docker import DockerRunner
 
 NONCE = "abc123"
@@ -75,35 +78,85 @@ def test_tail_reader_bounds_memory() -> None:
     assert reader.total == 300_004
 
 
-def test_split_result_takes_last_marker() -> None:
+def _env(result_text: str | None = None, **extra: object) -> str:
+    return json.dumps({"result_text": result_text, "files": {}, "skipped_files": [], **extra})
+
+
+def test_split_output_takes_last_marker() -> None:
     marker = f"\n{base.RESULT_MARKER}{NONCE}>>>\n"
-    fake = f"hello{marker}" + '{"answer": 0}'
-    raw = f"{fake}\nmore output{marker}" + '{"answer": 1, "data": {}}'
-    stdout, result, error = split_result(raw, NONCE)
-    assert result == {"answer": 1, "data": {}}
-    assert error is None
+    fake = f"hello{marker}" + _env('{"answer": 0}')
+    raw = f"{fake}\nmore output{marker}" + _env('{"answer": 1, "data": {}}')
+    stdout, got = split_output(raw, NONCE)
+    assert got is not None
+    assert got.result == {"answer": 1, "data": {}}
+    assert got.error is None
     assert stdout.startswith("hello")
 
 
-def test_split_result_ignores_other_nonce() -> None:
-    raw = f"x\n{base.RESULT_MARKER}other>>>\n" + '{"answer": 1}'
-    assert split_result(raw, NONCE)[1] is None
+def test_split_output_ignores_other_nonce() -> None:
+    raw = f"x\n{base.RESULT_MARKER}other>>>\n" + _env('{"answer": 1}')
+    assert split_output(raw, NONCE)[1] is None
 
 
 @pytest.mark.parametrize(
     ("body", "error"),
     [
-        ("{not json", "not valid JSON"),
-        ("[1, 2]", "'answer' key"),
-        ('{"__too_large__": 5000000}', "larger than"),
+        (_env("{not json"), "not valid JSON"),
+        (_env("[1, 2]"), "'answer' key"),
+        (_env(None, result_too_large=5_000_000), "larger than"),
+        ("not an envelope", "could not be parsed"),
+        ("[1]", "could not be parsed"),
     ],
 )
 def test_bad_result_bodies(body: str, error: str) -> None:
     raw = f"\n{base.RESULT_MARKER}{NONCE}>>>\n{body}"
-    _, result, err = split_result(raw, NONCE)
-    assert result is None
-    assert err is not None
-    assert error in err
+    _, got = split_output(raw, NONCE)
+    assert got is not None
+    assert got.result is None
+    assert got.error is not None
+    assert error in got.error
+
+
+def test_envelope_without_result_and_with_files() -> None:
+    got = base.parse_envelope(_env(None, files={"a.png": "QUJD"}, skipped_files=["b.png"]))
+    assert got.result is None
+    assert got.error is None
+    assert got.files == {"a.png": "QUJD"}
+    assert "b.png" in got.warnings[0]
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 10
+
+
+def test_collect_pngs_budget_and_filters(tmp_path: Path) -> None:
+    """Small PNGs are returned (smallest first) within a total budget; others are skipped."""
+    (tmp_path / "small.png").write_bytes(PNG)
+    (tmp_path / "big.png").write_bytes(PNG + b"\x00" * 100)
+    (tmp_path / "fake.png").write_bytes(b"not a png")
+    (tmp_path / "notes.txt").write_text("x", encoding="utf-8")
+    files, skipped = launch.collect_pngs(tmp_path, budget=60)
+    assert set(files) == {"small.png"}
+    assert base64.b64decode(files["small.png"]) == PNG
+    assert skipped == ["big.png", "fake.png"]
+
+
+def test_launcher_envelope(tmp_path: Path) -> None:
+    (tmp_path / "result.json").write_text('{"answer": 3}', encoding="utf-8")
+    (tmp_path / "plot.png").write_bytes(PNG)
+    env = launch.envelope(tmp_path)
+    got = base.from_envelope(env)
+    assert got.result == {"answer": 3}
+    assert set(got.files) == {"plot.png"}
+
+
+def test_launcher_envelope_result_too_large(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(launch, "MAX_RESULT_BYTES", 5)
+    (tmp_path / "result.json").write_text('{"answer": 12345}', encoding="utf-8")
+    got = base.from_envelope(launch.envelope(tmp_path))
+    assert got.result is None
+    assert "larger than" in (got.error or "")
 
 
 def test_run_result_failure_reasons() -> None:
@@ -141,12 +194,13 @@ def test_missing_docker_raises_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 STUB = """\
-import sys, time
+import json, sys, time
 nonce = sys.argv[-1]
 mode = sys.argv[-2]
 if mode == "ok":
     print("hi")
-    sys.stdout.write("\\n<<<SIMAGENT_RESULT:" + nonce + ">>>\\n" + '{"answer": 42}')
+    env = {"result_text": '{"answer": 42}', "files": {"p.png": "QUJD"}}
+    sys.stdout.write("\\n<<<SIMAGENT_RESULT:" + nonce + ">>>\\n" + json.dumps(env))
 elif mode == "sleep":
     time.sleep(3)
 elif mode == "noimage":
@@ -187,6 +241,7 @@ def test_run_flow_success(stub: Stub) -> None:
     res = DockerRunner().run("print(1)\n", timeout_s=20)
     assert res.ok
     assert res.result_json == {"answer": 42}
+    assert res.files == {"p.png": "QUJD"}
     assert res.stdout.strip() == "hi"
     assert res.runner == "docker"
 

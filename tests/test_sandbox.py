@@ -5,6 +5,7 @@ sandbox holds on its own. They need Docker and the ``simagent-sandbox`` image
 (`make sandbox-image`) and are skipped otherwise.
 """
 
+import base64
 import json
 import subprocess
 import textwrap
@@ -52,10 +53,14 @@ def test_matplotlib_works_headless() -> None:
         import matplotlib.pyplot as plt, simagent_io
         plt.plot([1, 2], [3, 4])
         plt.savefig("/out/plot.png")
+        with open("/out/notes.txt", "w") as fh:
+            fh.write("not returned")
         simagent_io.submit("ok")
         """
     )
     assert res.ok, res.stderr
+    assert set(res.files) == {"plot.png"}
+    assert base64.b64decode(res.files["plot.png"]).startswith(b"\x89PNG")
 
 
 def test_exit_zero_without_submit_is_failure() -> None:

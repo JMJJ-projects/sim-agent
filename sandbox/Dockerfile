@@ -23,7 +23,7 @@ RUN pip install --only-binary=:all: --no-deps -r /tmp/requirements.txt \
 # (isolated mode: ignores PYTHON* variables and the user site) still finds them.
 COPY src/photonsim /usr/local/lib/python3.12/site-packages/photonsim
 COPY src/simagent/io_helper/simagent_io.py /usr/local/lib/python3.12/site-packages/simagent_io.py
-COPY sandbox/launch.py /opt/simagent/launch.py
+COPY src/simagent/io_helper/launch.py /opt/simagent/launch.py
 RUN python -m compileall -q /usr/local/lib/python3.12/site-packages/photonsim \
         /usr/local/lib/python3.12/site-packages/simagent_io.py \
     && python -c "import photonsim, simagent_io, numpy, matplotlib.pyplot"

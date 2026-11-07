@@ -4,7 +4,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-from simagent.evaluation.report import build, write_report
+import pytest
+
+from simagent.evaluation.report import (
+    README_END,
+    README_START,
+    build,
+    readme_block,
+    replace_block,
+    write_report,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,6 +96,19 @@ def test_committed_report_is_current() -> None:
     """Covers R-EV-7: regenerate with `python scripts/report.py` if this fails."""
     _, expected = build(ROOT)
     assert (ROOT / "docs" / "eval_results.md").read_text(encoding="utf-8") == expected
+
+
+def test_readme_results_block_is_current() -> None:
+    """Covers R-EV-7: README numbers come only from committed results files."""
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    start, end = text.index(README_START), text.index(README_END) + len(README_END)
+    assert text[start:end] == readme_block(ROOT)
+
+
+def test_replace_block_needs_markers() -> None:
+    with pytest.raises(ValueError, match="markers"):
+        replace_block("no markers", "x")
+    assert replace_block(f"a {README_START} old {README_END} b", "NEW") == "a NEW b"
 
 
 def test_report_follows_plan_and_marks_missing_runs(tmp_path: Path) -> None:

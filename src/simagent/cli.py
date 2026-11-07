@@ -20,10 +20,13 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from simagent import __version__
+from simagent.agent import run_agent
 from simagent.config import ConfigError, Settings, load_env
 from simagent.doctor import run_checks
 from simagent.execution import Execution, execute
+from simagent.prompts import validate_request
 from simagent.runners import RunnerUnavailableError, make_runner
+from simagent.state import FinalAnswer
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -135,7 +138,7 @@ def run_script(
     else:
         if ex.run is not None and ex.run.warnings:
             for w in ex.run.warnings:
-                err.print(f"[yellow]{w}[/]", highlight=False)
+                err.print(f"[yellow]{w}[/]")
         _print_execution(ex)
         if ex.policy.ok:
             out.print(Syntax(code, "python", line_numbers=True, word_wrap=True))
@@ -172,3 +175,100 @@ def doctor(
         if missing:
             err.print(f"[bold red]error:[/] {missing[0].detail}", highlight=False, soft_wrap=True)
     raise typer.Exit(EXIT_CONFIG if missing else EXIT_OK)
+
+
+def _final_json(final: FinalAnswer, run_dir: Path | None) -> dict[str, Any]:
+    out_dict: dict[str, Any] = dict(final)
+    out_dict["files"] = sorted(final["files"])
+    out_dict["run_dir"] = str(run_dir) if run_dir else None
+    return out_dict
+
+
+def _tok(value: object) -> str:
+    return "not reported" if value is None else str(value)
+
+
+def _error_summary(text: str | None, width: int = 110) -> str:
+    """One line for an error report: the exception line of a traceback, else the first line."""
+    if not text:
+        return ""
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    has_traceback = any(ln.startswith("stderr") for ln in lines)
+    line = lines[-1] if has_traceback else lines[0]
+    if line.startswith("- "):  # policy feedback lists violations as bullets
+        line = lines[1] if len(lines) > 1 else line
+    return line if len(line) <= width else line[: width - 3] + "..."
+
+
+def _print_final(final: FinalAnswer, run_dir: Path | None) -> None:
+    status = final["status"]
+    style = {"solved": "green", "refused": "yellow"}.get(status, "red")
+    grid = Table.grid(padding=(0, 2))
+    grid.add_row("status", f"[bold {style}]{status}[/]")
+    grid.add_row("attempts", str(final["attempts"]))
+    if status == "solved":
+        grid.add_row("answer", json.dumps(final["answer"]))
+        if final["data"]:
+            grid.add_row("data", json.dumps(final["data"], default=str)[:600])
+    if final["explanation"]:
+        grid.add_row("explanation", final["explanation"])
+    if run_dir is not None:
+        grid.add_row("artifacts", str(run_dir))
+    if final["files"]:
+        where = f" (saved under {run_dir})" if run_dir else ""
+        grid.add_row("files", ", ".join(sorted(final["files"])) + where)
+    out.print(Panel(grid, title=f"simagent solve: {final['request'][:60]}", border_style=style))
+
+    table = Table(title="attempts", show_lines=False)
+    table.add_column("#")
+    table.add_column("outcome", overflow="fold")
+    calls = final["metrics"]
+    for i, error in enumerate(final["errors"], start=1):
+        table.add_row(str(i), _error_summary(error) or "[green]ok[/]")
+    table.caption = (
+        f"model {calls['model_s']:.1f} s, sandbox {calls['run_s']:.1f} s, "
+        f"tokens in/out {_tok(calls['input_tokens'])}/{_tok(calls['output_tokens'])}"
+    )
+    out.print(table)
+    if final["final_script"]:
+        out.print(Panel(Syntax(final["final_script"], "python", line_numbers=True), title="script"))
+
+
+@app.command()
+@expected_errors
+def solve(
+    request: Annotated[str, typer.Argument(help="What to simulate, in plain language.")],
+    provider: Annotated[
+        str | None, typer.Option(help="ollama | groq | openai | fake (default: LLM_PROVIDER).")
+    ] = None,
+    model: Annotated[str | None, typer.Option(help="Model name (default: LLM_MODEL).")] = None,
+    max_attempts: Annotated[
+        int, typer.Option("--max-attempts", help="Attempts including the first (1 = baseline).")
+    ] = 4,
+    unsafe_local: Annotated[
+        bool, typer.Option("--unsafe-local", help="Run without isolation (development only).")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the final answer as JSON.")
+    ] = False,
+) -> None:
+    """Turn a request into a simulation script, run it in the sandbox and repair it if needed."""
+    try:
+        text = validate_request(request)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from None
+    settings = Settings.from_env(provider=provider, model=model)
+    if settings.provider == "fake" and not as_json:
+        err.print(
+            "[dim]note: --provider fake replays a built-in scripted demo (a buggy script, then the "
+            "fix); the request text does not change the code.[/]",
+            highlight=False,
+        )
+    if unsafe_local:
+        err.print("[yellow]warning: --unsafe-local runs generated code without isolation[/]")
+    final, run_dir = run_agent(text, settings, max_attempts=max_attempts, unsafe_local=unsafe_local)
+    if as_json:
+        typer.echo(json.dumps(_final_json(final, run_dir), indent=2, default=str))
+    else:
+        _print_final(final, run_dir)
+    raise typer.Exit(EXIT_OK if final["status"] == "solved" else EXIT_NOT_SOLVED)

@@ -1,5 +1,6 @@
 """Shared pytest configuration."""
 
+import os
 from functools import lru_cache
 
 import pytest
@@ -21,6 +22,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     ready, detail = _docker_ready()
     if ready:
         return
+    if os.environ.get("SIMAGENT_REQUIRE_DOCKER") == "1":
+        raise pytest.UsageError(f"SIMAGENT_REQUIRE_DOCKER=1 but Docker is not ready: {detail}")
     skip = pytest.mark.skip(reason=f"Docker sandbox not available: {detail}")
     for item in docker_items:
         item.add_marker(skip)

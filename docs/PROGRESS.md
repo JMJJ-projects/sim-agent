@@ -2,7 +2,7 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
-## Status: all phases done (2026-11-07); waiting for the user to push and check CI
+## Status: all phases done, pushed, CI green (2026-11-07)
 
 Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
 
@@ -130,16 +130,24 @@ aborts on the 1.5B model; one 31 s container start while two runs shared Docker.
 
 ## Not verified
 
-- **CI has never run** (nothing pushed). The workflow is written but its first run may need fixes.
-- **MCP with a real client** (Claude Desktop / Claude Code) was not tested by the user; the
-  stdio protocol is tested with the SDK client in a subprocess.
+- Nothing open from earlier: CI runs and is green, and MCP was tested with a real client (below).
 - 7B row skipped by decision.
+
+## Publishing and CI (2026-11-07)
+
+- Repository: https://github.com/JMJJ-projects/sim-agent (public), with a CI badge in the README.
+- The first CI run failed in the `sandbox` job: on Linux the bind-mounted script directory was
+  0700 for the host user, so the container's uid 10001 could not read it (Docker Desktop on
+  Windows hides this). Fixed in `fix(runner)` (dir 0755, script 0644, mount still read-only).
+  Since then all jobs pass: lint-test on 3.11 and 3.13, and sandbox with 16 Docker tests and the
+  fake-provider smoke eval (3/3).
+- **Phase 6 fully done:** a fresh headless Claude Code session used the registered `simagent`
+  MCP server (`describe_simulator` → `run_simulation_script` in the Docker sandbox, T = 0.0301 for
+  5 cm of lead at 1 MeV); details in `docs/mcp.md`.
 
 ## What the user needs to do
 
-1. Review the history (`git log --oneline`) and push `main`; check that both CI jobs pass.
-2. Add a CI badge to the README once the GitHub URL is known.
-3. Optionally connect Claude Desktop or Claude Code as in `docs/mcp.md`.
+- Nothing required. Optional: try Claude Desktop with the config in `docs/mcp.md`.
 
 ## Next (optional extensions, PLAN.md section 5)
 

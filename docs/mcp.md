@@ -68,6 +68,21 @@ On macOS/Linux the command is `<repo>/.venv/bin/simagent`. Notes:
 claude mcp add simagent -e LLM_PROVIDER=ollama -e LLM_MODEL=qwen2.5-coder:3b -- <repo>/.venv/Scripts/simagent.exe mcp
 ```
 
+### Verified with Claude Code (2026-11-07)
+
+Registered with `claude mcp add simagent -- "<repo>\.venv\Scripts\simagent.exe" mcp`
+(`claude mcp get simagent` reports "Connected"), then tested in a fresh headless session:
+
+```bash
+claude -p "Use the simagent tools to compute the transmission of 1 MeV photons through 5 cm of lead"   --allowedTools "mcp__simagent__describe_simulator,mcp__simagent__run_simulation_script,mcp__simagent__solve"
+```
+
+The session called `describe_simulator`, then `run_simulation_script` with its own script
+(5 cm lead, 1 MeV, 500 000 photons, seed 1), which ran in the Docker sandbox in 0.9 s and
+returned transmission 0.030074 ± 0.00024 (reflected 0.110, absorbed 0.860). Notes for headless
+use: `-p` cannot ask for tool approval, so allow the simagent tools explicitly; the server
+inherits Claude Code's environment, so `docker` must be on that `PATH`.
+
 ## Try it
 
 Ask the client, for example: "Use the simagent tools to find the lead thickness, to the nearest

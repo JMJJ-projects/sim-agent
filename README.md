@@ -151,6 +151,21 @@ or `make bench` for the whole plan in [data/bench_plan.json](data/bench_plan.jso
   API-reference pattern.
 - Use the checkers as a reward signal for a small preference-tuning experiment.
 
+## Make targets
+
+| Target | What it does |
+|---|---|
+| `make install` | `pip install -e ".[dev,ollama]"` |
+| `make lint` / `make format` | ruff check + format check + `mypy --strict` / auto-format |
+| `make test` / `make test-docker` / `make cov` | test suite / Docker isolation tests only / coverage |
+| `make sandbox-image` | build the `simagent-sandbox` image |
+| `make eval-smoke` | 3-task evaluation with the fake provider (harness check, as in CI) |
+| `make bench` / `make bench-status` | run the benchmark plan resumably, promote complete runs, regenerate the report / show progress |
+| `make report` | regenerate `docs/eval_results.md`, the chart and the README results block |
+| `make api-doc` / `make graph-doc` / `make materials` | regenerate `docs/api.md` / `docs/graph.mmd` / the NIST material table |
+
+On Windows without `make`, run the commands from the `Makefile` directly.
+
 ## Project layout
 
 `src/photonsim` (simulator), `src/simagent` (policy, runners, LLM layer, agent graph, CLI, MCP

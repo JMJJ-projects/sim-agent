@@ -16,8 +16,8 @@ Prompt versions: **v1** = original system prompt; **v2** = v1 plus one general i
 | 2 | ollama | `qwen2.5-coder:3b` | v2 | repair | 36 | 67 % (24/36) | 1.17 | 2 | 10 | 0 | 0 | 4.8 s / 18.9 s | 0.06 s | 72 | 86,632 / 13,852 | 2,406 / 385 | n/a: local model | 2229 MiB |
 | 2 | groq | `openai/gpt-oss-120b` [1] | v2 | baseline | 36 | 94 % (34/36) | 1.00 | 0 | 0 | 0 | 0 | 2.7 s / 3.3 s | 0.74 s | 1049 | 56,592 / 16,926 | 1,572 / 470 | n/a: free tier, official pricing unavailable on 2026-11-07 | n/a |
 | 2 | groq | `openai/gpt-oss-120b` [1] | v2 | repair | 36 | 100 % (36/36) | 1.06 | 2 | 0 | 0 | 0 | 2.4 s / 3.0 s | 0.78 s | 1028 | 62,031 / 17,828 | 1,723 / 495 | n/a: free tier, official pricing unavailable on 2026-11-07 | n/a |
-| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | baseline | 36 | 11 % (4/36) | 1.00 | 0 | 1 | 1 | 0 | 1.3 s / 5.7 s | 0.05 s | 119 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
-| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | repair | 36 | 22 % (8/36) | 3.12 | 8 | 10 | 6 | 0 | 8.8 s / 14.3 s | 0.07 s | 121 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
+| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | baseline | 36 | 11 % (4/36) | 1.00 | 0 | 1 | 1 | 0 | 1.3 s / 5.7 s | 0.05 s | 119 | 47,292 / 6,812 (31 of 36 tasks reported) | 1,526 / 220 (31 of 36 tasks reported) | n/a: local model | 1339 MiB |
+| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | repair | 36 | 22 % (8/36) | 3.12 | 8 | 10 | 6 | 0 | 8.8 s / 14.3 s | 0.07 s | 121 | 176,115 / 25,347 (31 of 36 tasks reported) | 5,681 / 818 (31 of 36 tasks reported) | n/a: local model | 1339 MiB |
 | 2 | ollama | `qwen2.5:3b` | v2 | baseline | 36 | 47 % (17/36) | 1.00 | 0 | 1 | 1 | 0 | 3.0 s / 4.3 s | 0.06 s | 72 | 54,809 / 4,990 | 1,522 / 139 | n/a: local model | 2229 MiB |
 | 2 | ollama | `qwen2.5:3b` | v2 | repair | 36 | 53 % (19/36) | 1.32 | 3 | 5 | 6 | 0 | 7.4 s / 19.3 s | 0.07 s | 72 | 148,545 / 17,259 | 4,126 / 479 | n/a: local model | 2229 MiB |
 

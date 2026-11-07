@@ -66,8 +66,24 @@ def _pct(value: float | None) -> str:
     return "n/a" if value is None else f"{100 * value:.0f} %"
 
 
-def _per_task(total: int | None, n: int) -> str:
-    return "n/a" if total is None or not n else f"{total / n:,.0f}"
+def token_cells(records: list[dict[str, Any]]) -> tuple[str, str]:
+    """(total, per task) input/output tokens over the tasks whose provider reported them.
+
+    Tasks without reported tokens (e.g. a call the server aborted) are excluded and counted, so
+    the numbers stay exact instead of turning the whole run into n/a.
+    """
+    known = [
+        r
+        for r in records
+        if r.get("input_tokens") is not None and r.get("output_tokens") is not None
+    ]
+    if not known:
+        return "n/a / n/a", "n/a / n/a"
+    tin = sum(int(r["input_tokens"]) for r in known)
+    tout = sum(int(r["output_tokens"]) for r in known)
+    k, n = len(known), len(records)
+    note = "" if k == n else f" ({k} of {n} tasks reported)"
+    return f"{tin:,} / {tout:,}{note}", f"{tin / k:,.0f} / {tout / k:,.0f}{note}"
 
 
 def _cost(summary: dict[str, Any], prices: dict[str, Any]) -> str:
@@ -93,12 +109,13 @@ def _ordered(plan: dict[str, Any], runs: dict[Key, dict[str, Any]]) -> list[tupl
     return rows
 
 
-def _run_cells(s: dict[str, Any], prices: dict[str, Any]) -> list[str]:
+def _run_cells(run: dict[str, Any], prices: dict[str, Any]) -> list[str]:
+    s = run["summary"]
     n = s["tasks"]
     latency = (
         f"{_fmt(s['latency_median_s'], '.1f', ' s')} / {_fmt(s['latency_p90_s'], '.1f', ' s')}"
     )
-    tin, tout = s["input_tokens_total"], s["output_tokens_total"]
+    total, per_task = token_cells(run["records"])
     return [
         str(n),
         f"{_pct(s['success_rate'])} ({s['passed']}/{n})",
@@ -110,8 +127,8 @@ def _run_cells(s: dict[str, Any], prices: dict[str, Any]) -> list[str]:
         latency,
         _fmt(s["ttft_median_s"], ".2f", " s"),
         _fmt(s["tokens_per_s_median"], ".0f"),
-        f"{_fmt(tin, ',')} / {_fmt(tout, ',')}",
-        f"{_per_task(tin, n)} / {_per_task(tout, n)}",
+        total,
+        per_task,
         _cost(s, prices),
         _fmt(s["peak_vram_mib"], "", " MiB"),
     ]
@@ -155,7 +172,7 @@ def render_markdown(
         if run is None:
             out.append("| " + " | ".join([*head, "-", NOT_RUN] + ["-"] * 13) + " |")
         else:
-            out.append("| " + " | ".join(head + _run_cells(run["summary"], prices)) + " |")
+            out.append("| " + " | ".join(head + _run_cells(run, prices)) + " |")
     if notes:
         out.append("")
         out += [f"[{i}] {note}." for i, note in enumerate(notes, start=1)]
@@ -284,10 +301,8 @@ def render_readme_block(
             cells += [NOT_RUN, NOT_RUN, NOT_RUN]
         else:
             s = rep["summary"]
-            n = s["tasks"]
             cells.append(_fmt(s["latency_median_s"], ".1f", " s"))
-            tin, tout = s["input_tokens_total"], s["output_tokens_total"]
-            cells.append(f"{_per_task(tin, n)} / {_per_task(tout, n)}")
+            cells.append(token_cells(rep["records"])[1])
             cells.append(_cost(s, prices))
         lines.append(f"| {provider} `{model}` | v{prompt} | " + " | ".join(cells) + " |")
     lines += [
@@ -312,14 +327,17 @@ def _label(key: Key) -> str:
     return f"{key[1]} (prompt v{key[2]})"
 
 
-def render_chart(runs: dict[Key, dict[str, Any]], out: Path) -> None:
+def render_chart(
+    runs: dict[Key, dict[str, Any]], out: Path, order: list[Key] | None = None
+) -> None:
     """Two panels: success rate by model and mode; median latency vs success rate."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    groups = list(dict.fromkeys(_label(k) for k in runs))
+    keys = [k for k in (order or list(runs)) if k in runs]
+    groups = list(dict.fromkeys(_label(k) for k in keys))
     by_group = {(_label(k), k[3]): r["summary"] for k, r in runs.items()}
     fig, (ax1, ax2) = plt.subplots(
         1, 2, figsize=(11.5, 0.6 * len(groups) + 2.6), dpi=150, facecolor=SURFACE
@@ -359,14 +377,23 @@ def render_chart(runs: dict[Key, dict[str, Any]], out: Path) -> None:
             return None
         return float(s["latency_median_s"]), 100 * float(s["success_rate"])
 
+    placed: list[tuple[float, float]] = []
     for group in groups:
         base, rep = _point(group, "baseline"), _point(group, "repair")
         if base is not None and rep is not None:
             ax2.plot([base[0], rep[0]], [base[1], rep[1]], color=GRID, linewidth=2, zorder=2)
         anchor = rep or base
         if anchor is not None:
+            # Move a label below its point when another label sits close above/right of it.
+            near = any(abs(anchor[1] - y) < 6 and abs(anchor[0] - x) < 6 for x, y in placed)
+            placed.append(anchor)
             ax2.annotate(
-                group, anchor, textcoords="offset points", xytext=(7, 3), fontsize=7, color=INK_2
+                group,
+                anchor,
+                textcoords="offset points",
+                xytext=(7, -11 if near else 3),
+                fontsize=7,
+                color=INK_2,
             )
     for mode in ("baseline", "repair"):
         pts = [p for g in groups if (p := _point(g, mode)) is not None]
@@ -427,7 +454,8 @@ def write_report(root: Path, results_dir: Path | None = None, docs_dir: Path | N
         readme.write_text(text, encoding="utf-8", newline="\n")
     chart = docs / "eval_chart.png"
     if runs:
-        render_chart(runs, chart)
+        plan = load_json(root / "data" / "bench_plan.json", {"runs": []})
+        render_chart(runs, chart, [key for _, key in _ordered(plan, runs)])
     elif chart.exists():
         chart.unlink()
     return len(runs)

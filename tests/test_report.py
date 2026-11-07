@@ -151,3 +151,18 @@ def test_plan_without_results_lists_every_row(tmp_path: Path) -> None:
     assert md.count("not run yet") >= 4
     assert "Round 1 (prompt v1) is not run yet." in md
     assert not (root / "docs" / "eval_chart.png").exists()
+
+
+def test_token_cells_count_unreported_tasks() -> None:
+    from simagent.evaluation.report import token_cells
+
+    recs = [
+        {"input_tokens": 1000, "output_tokens": 100},
+        {"input_tokens": 3000, "output_tokens": 300},
+        {"input_tokens": None, "output_tokens": None},
+    ]
+    total, per_task = token_cells(recs)
+    assert total == "4,000 / 400 (2 of 3 tasks reported)"
+    assert per_task == "2,000 / 200 (2 of 3 tasks reported)"
+    assert token_cells(recs[:2])[0] == "4,000 / 400"
+    assert token_cells(recs[2:]) == ("n/a / n/a", "n/a / n/a")

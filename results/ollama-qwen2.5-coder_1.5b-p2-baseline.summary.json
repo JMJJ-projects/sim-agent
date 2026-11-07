@@ -1,0 +1,41 @@
+{
+  "provider": "ollama",
+  "model": "qwen2.5-coder:1.5b",
+  "mode": "baseline",
+  "prompt_version": 2,
+  "max_attempts": 1,
+  "tasks": 36,
+  "passed": 4,
+  "success_rate": 0.1111111111111111,
+  "success_rate_by_category": {
+    "adversarial": 0.8,
+    "ambiguous_or_misleading": 0.0,
+    "compare": 0.0,
+    "multi_step": 0.0,
+    "search": 0.0,
+    "single_run": 0.0,
+    "sweep": 0.0
+  },
+  "tasks_by_category": {
+    "adversarial": 5,
+    "ambiguous_or_misleading": 6,
+    "compare": 5,
+    "multi_step": 5,
+    "search": 5,
+    "single_run": 5,
+    "sweep": 5
+  },
+  "mean_attempts_solved": 1.0,
+  "repaired_successes": 0,
+  "status_solved_but_wrong": 1,
+  "policy_violations": 1,
+  "timeouts": 0,
+  "latency_median_s": 1.3275000000000001,
+  "latency_p90_s": 5.7125,
+  "ttft_median_s": 0.05083260000537848,
+  "tokens_per_s_median": 118.69014463565905,
+  "input_tokens_total": null,
+  "output_tokens_total": null,
+  "cost_usd_total": null,
+  "peak_vram_mib": 1339
+}

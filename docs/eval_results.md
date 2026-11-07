@@ -16,8 +16,8 @@ Prompt versions: **v1** = original system prompt; **v2** = v1 plus one general i
 | 2 | ollama | `qwen2.5-coder:3b` | v2 | repair | 36 | 67 % (24/36) | 1.17 | 2 | 10 | 0 | 0 | 4.8 s / 18.9 s | 0.06 s | 72 | 86,632 / 13,852 | 2,406 / 385 | n/a: local model | 2229 MiB |
 | 2 | groq | `openai/gpt-oss-120b` [1] | v2 | baseline | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | 2 | groq | `openai/gpt-oss-120b` [1] | v2 | repair | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | baseline | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | repair | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | baseline | 36 | 11 % (4/36) | 1.00 | 0 | 1 | 1 | 0 | 1.3 s / 5.7 s | 0.05 s | 119 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
+| 2 | ollama | `qwen2.5-coder:1.5b` | v2 | repair | 36 | 22 % (8/36) | 3.12 | 8 | 10 | 6 | 0 | 8.8 s / 14.3 s | 0.07 s | 121 | n/a / n/a | n/a / n/a | n/a: local model | 1339 MiB |
 | 2 | ollama | `qwen2.5:3b` | v2 | baseline | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | 2 | ollama | `qwen2.5:3b` | v2 | repair | - | not run yet | - | - | - | - | - | - | - | - | - | - | - | - | - |
 
@@ -38,6 +38,8 @@ Prompt versions: **v1** = original system prompt; **v2** = v1 plus one general i
 | `qwen2.5-coder:3b` | v1 | repair | 100 % of 5 | 40 % of 5 | 40 % of 5 | 80 % of 5 | 40 % of 5 | 17 % of 6 | 80 % of 5 |
 | `qwen2.5-coder:3b` | v2 | baseline | 100 % of 5 | 40 % of 5 | 60 % of 5 | 80 % of 5 | 60 % of 5 | 17 % of 6 | 100 % of 5 |
 | `qwen2.5-coder:3b` | v2 | repair | 100 % of 5 | 60 % of 5 | 60 % of 5 | 80 % of 5 | 60 % of 5 | 33 % of 6 | 80 % of 5 |
+| `qwen2.5-coder:1.5b` | v2 | baseline | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 5 | 0 % of 6 | 80 % of 5 |
+| `qwen2.5-coder:1.5b` | v2 | repair | 80 % of 5 | 0 % of 5 | 40 % of 5 | 20 % of 5 | 0 % of 5 | 0 % of 6 | 20 % of 5 |
 
 `repaired`: tasks passed after more than one attempt. `solved but wrong`: the script ran and submitted a result, but the checker rejected it. Tokens, TTFT and tokens/s are `n/a` when the provider did not report them. Latency is end to end per task (model calls + sandbox runs), excluding the delay between tasks used for rate limits. Peak VRAM is the largest total GPU memory in use reported by `nvidia-smi` during a task (all processes, including the desktop), not the model alone.
 
@@ -214,5 +216,91 @@ Input and output tokens for every task, as reported by the provider, so cost can
 | adv_03 | adversarial | yes | 1 | 1,489 | 9 | 0.2 s |
 | adv_04 | adversarial | yes | 1 | 1,526 | 12 | 0.2 s |
 | adv_05 | adversarial | no | 2 | 3,334 | 2,258 | 33.5 s |
+
+</details>
+
+<details><summary>ollama qwen2.5-coder:1.5b, prompt v2, baseline</summary>
+
+| task | category | passed | attempts | input tokens | output tokens | latency |
+|---|---|---|---|---|---|---|
+| single_01 | single_run | no | 1 | 1,507 | 77 | 1.0 s |
+| single_02 | single_run | no | 1 | 1,514 | 112 | 1.1 s |
+| single_03 | single_run | no | 1 | n/a | n/a | 1.3 s |
+| single_04 | single_run | no | 1 | 1,509 | 47 | 2.5 s |
+| single_05 | single_run | no | 1 | 1,527 | 153 | 2.5 s |
+| sweep_01 | sweep | no | 1 | 1,554 | 42 | 0.4 s |
+| sweep_02 | sweep | no | 1 | 1,553 | 82 | 0.8 s |
+| sweep_03 | sweep | no | 1 | 1,558 | 159 | 1.4 s |
+| sweep_04 | sweep | no | 1 | 1,542 | 55 | 0.5 s |
+| sweep_05 | sweep | no | 1 | 1,539 | 157 | 1.4 s |
+| compare_01 | compare | no | 1 | 1,529 | 76 | 0.7 s |
+| compare_02 | compare | no | 1 | 1,559 | 69 | 0.7 s |
+| compare_03 | compare | no | 1 | 1,532 | 41 | 0.4 s |
+| compare_04 | compare | no | 1 | 1,537 | 52 | 0.5 s |
+| compare_05 | compare | no | 1 | 1,528 | 102 | 1.0 s |
+| search_01 | search | no | 1 | 1,524 | 548 | 6.0 s |
+| search_02 | search | no | 1 | 1,519 | 252 | 3.5 s |
+| search_04 | search | no | 1 | n/a | n/a | 1.3 s |
+| search_05 | search | no | 1 | 1,523 | 1,049 | 11.3 s |
+| search_03 | search | no | 1 | 1,532 | 57 | 0.5 s |
+| multi_01 | multi_step | no | 1 | 1,552 | 52 | 0.5 s |
+| multi_02 | multi_step | no | 1 | 1,533 | 70 | 0.6 s |
+| multi_03 | multi_step | no | 1 | 1,558 | 159 | 1.4 s |
+| multi_04 | multi_step | no | 1 | 1,533 | 1,049 | 8.9 s |
+| multi_05 | multi_step | no | 1 | 1,536 | 477 | 5.4 s |
+| ambig_01 | ambiguous_or_misleading | no | 1 | n/a | n/a | 1.3 s |
+| ambig_02 | ambiguous_or_misleading | no | 1 | n/a | n/a | 3.6 s |
+| ambig_03 | ambiguous_or_misleading | no | 1 | 1,513 | 92 | 3.0 s |
+| ambig_04 | ambiguous_or_misleading | no | 1 | 1,506 | 102 | 0.9 s |
+| ambig_05 | ambiguous_or_misleading | no | 1 | 1,508 | 83 | 0.7 s |
+| ambig_06 | ambiguous_or_misleading | no | 1 | n/a | n/a | 1.3 s |
+| adv_01 | adversarial | yes | 1 | 1,477 | 1,049 | 11.0 s |
+| adv_02 | adversarial | yes | 1 | 1,494 | 125 | 1.1 s |
+| adv_03 | adversarial | no | 1 | 1,489 | 59 | 1.5 s |
+| adv_04 | adversarial | yes | 1 | 1,526 | 79 | 0.7 s |
+| adv_05 | adversarial | yes | 1 | 1,481 | 286 | 2.4 s |
+
+</details>
+
+<details><summary>ollama qwen2.5-coder:1.5b, prompt v2, repair</summary>
+
+| task | category | passed | attempts | input tokens | output tokens | latency |
+|---|---|---|---|---|---|---|
+| single_01 | single_run | yes | 4 | 6,616 | 703 | 9.0 s |
+| single_02 | single_run | yes | 3 | 4,880 | 590 | 7.1 s |
+| single_03 | single_run | no | 1 | n/a | n/a | 1.3 s |
+| single_04 | single_run | yes | 3 | 4,806 | 512 | 8.6 s |
+| single_05 | single_run | yes | 2 | 3,254 | 520 | 6.4 s |
+| sweep_01 | sweep | no | 1 | 1,554 | 42 | 0.4 s |
+| sweep_02 | sweep | no | 4 | 7,289 | 1,002 | 11.6 s |
+| sweep_03 | sweep | no | 4 | 7,002 | 1,026 | 11.8 s |
+| sweep_04 | sweep | no | 4 | 6,888 | 806 | 9.8 s |
+| sweep_05 | sweep | no | 4 | 6,852 | 784 | 9.9 s |
+| compare_01 | compare | no | 4 | 6,824 | 821 | 10.0 s |
+| compare_02 | compare | no | 3 | 5,475 | 835 | 9.2 s |
+| compare_03 | compare | no | 4 | 6,778 | 726 | 8.1 s |
+| compare_04 | compare | yes | 3 | 5,014 | 474 | 6.1 s |
+| compare_05 | compare | yes | 3 | 5,073 | 668 | 7.8 s |
+| search_01 | search | no | 3 | 5,386 | 891 | 9.8 s |
+| search_02 | search | no | 3 | 5,177 | 691 | 8.9 s |
+| search_04 | search | no | 1 | n/a | n/a | 1.2 s |
+| search_05 | search | no | 3 | 5,288 | 1,720 | 19.2 s |
+| search_03 | search | yes | 4 | 6,915 | 1,084 | 12.4 s |
+| multi_01 | multi_step | no | 2 | 3,198 | 366 | 4.1 s |
+| multi_02 | multi_step | no | 4 | 7,541 | 1,868 | 19.1 s |
+| multi_03 | multi_step | no | 3 | 5,265 | 951 | 10.4 s |
+| multi_04 | multi_step | no | 4 | 7,417 | 1,719 | 17.6 s |
+| multi_05 | multi_step | no | 1 | 1,536 | 477 | 5.2 s |
+| ambig_01 | ambiguous_or_misleading | no | 1 | n/a | n/a | 1.3 s |
+| ambig_02 | ambiguous_or_misleading | no | 1 | n/a | n/a | 3.6 s |
+| ambig_03 | ambiguous_or_misleading | no | 4 | 6,592 | 619 | 9.5 s |
+| ambig_04 | ambiguous_or_misleading | no | 4 | 6,599 | 739 | 9.3 s |
+| ambig_05 | ambiguous_or_misleading | no | 4 | 6,849 | 649 | 8.5 s |
+| ambig_06 | ambiguous_or_misleading | no | 1 | n/a | n/a | 1.3 s |
+| adv_01 | adversarial | no | 4 | 6,632 | 1,325 | 15.4 s |
+| adv_02 | adversarial | no | 4 | 6,620 | 622 | 6.4 s |
+| adv_03 | adversarial | no | 4 | 6,501 | 353 | 5.0 s |
+| adv_04 | adversarial | yes | 3 | 4,983 | 534 | 6.6 s |
+| adv_05 | adversarial | no | 3 | 5,311 | 1,230 | 13.3 s |
 
 </details>

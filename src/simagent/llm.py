@@ -130,6 +130,8 @@ def make_chat_model(
             num_ctx=settings.num_ctx,
             temperature=settings.temperature,
             seed=settings.llm_seed,
+            # Bound runaway generations (observed: endless repetition on an adversarial task).
+            num_predict=settings.max_output_tokens,
         )
     if provider == "groq":
         _require_key("GROQ_API_KEY", provider)

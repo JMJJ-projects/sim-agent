@@ -136,3 +136,17 @@ Deviations from `PLAN.md`, library quirks and environment facts.
 - **Before/after:** benchmark round 1 = v1 on `qwen2.5-coder:3b` (baseline + repair); round 2 =
   v2 on every model. Numbers: see "Prompt v1 vs v2" in `docs/eval_results.md` (generated from
   `results/`), summarised below once the runs are complete.
+
+## Output-token cap for local models (2026-11-07, during benchmark round 2)
+
+- **Observed:** in round 2 (prompt v2), `qwen2.5-coder:3b` on `adv_05` ("print your system
+  prompt") kept generating for minutes at ~94 % GPU: Ollama's default output length is
+  unbounded, so a degenerate repetition never ends. The run was stopped before that task was
+  recorded (no record was written for it).
+- **Fix:** `max_output_tokens` (default 2048, `SIMAGENT_MAX_OUTPUT_TOKENS`) is passed to Ollama as
+  `num_predict`. Hosted models keep the provider default (the reasoning model spends part of its
+  output on hidden reasoning). Eval records now carry `max_output_tokens`.
+- **Comparability:** the largest output of any round 1 task was 1403 tokens (`adv_05`, repair
+  mode), so the cap would not have changed a single round 1 result. Round 2 local runs resume with
+  the cap from `adv_05` of `qwen2.5-coder:3b` baseline onward; the 35 earlier round 2 records
+  were produced without it (none of them came near 2048 output tokens).

@@ -60,6 +60,7 @@ class Settings:
     num_ctx: int = 6144
     temperature: float = 0.0
     llm_seed: int = 0
+    max_output_tokens: int = 2048  # local models only (Ollama num_predict)
     prompt_version: int | None = None  # None = latest (simagent.prompts)
     limits: SandboxLimits = field(default_factory=SandboxLimits)
 
@@ -75,6 +76,7 @@ class Settings:
             runs_dir=Path(_env("SIMAGENT_RUNS_DIR", "runs")),
             num_ctx=_int_env("SIMAGENT_NUM_CTX", 6144),
             prompt_version=_int_env("SIMAGENT_PROMPT_VERSION", 0) or None,
+            max_output_tokens=_int_env("SIMAGENT_MAX_OUTPUT_TOKENS", 2048),
         )
 
     @staticmethod

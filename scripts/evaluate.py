@@ -92,6 +92,9 @@ def main(argv: list[str] | None = None) -> int:
             resume=args.resume,
             timeout_s=settings.timeout_s,
             prompt_version=prompt_version,
+            max_output_tokens=(
+                settings.max_output_tokens if settings.provider == "ollama" else None
+            ),
             delay_s=args.delay,
             sample_vram=args.vram,
             prices=load_prices(ROOT / "data" / "prices.json"),

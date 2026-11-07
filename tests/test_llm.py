@@ -49,6 +49,7 @@ def test_ollama_model_is_configured_without_network() -> None:
     assert model.model == "qwen2.5-coder:3b"
     assert model.num_ctx == settings.num_ctx
     assert model.temperature == 0.0
+    assert model.num_predict == settings.max_output_tokens == 2048
 
 
 @pytest.mark.parametrize(

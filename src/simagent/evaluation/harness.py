@@ -156,6 +156,7 @@ class EvalConfig:
     resume: bool = False
     timeout_s: float = 60.0
     prompt_version: int = 1
+    max_output_tokens: int | None = None
     delay_s: float = 0.0
     rate_limit_retries: int = 6
     rate_limit_wait_s: float = 30.0
@@ -256,6 +257,7 @@ def evaluate_task(
         "model": cfg.model,
         "mode": cfg.mode,
         "prompt_version": cfg.prompt_version,
+        "max_output_tokens": cfg.max_output_tokens,
         "max_attempts": cfg.attempts_for_mode,
         "status": status,
         "passed": outcome.passed,

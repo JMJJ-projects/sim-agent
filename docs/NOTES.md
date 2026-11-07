@@ -124,3 +124,15 @@ Deviations from `PLAN.md`, library quirks and environment facts.
   (Ollama reuses the KV cache of the identical system-prompt prefix across tasks), 74 tok/s,
   peak VRAM 2229 MiB. A general prompt change could likely remove this failure mode; it is
   deliberately **not** made before the benchmark (see PROGRESS.md, open questions).
+
+## Prompt v2 (2026-11-07)
+
+- **Change:** rule 3 of the system prompt now starts with "Start every script with
+  `import photonsim as ps` and `import simagent_io` (neither is imported for you)." Nothing else
+  changed (a test checks that). v1 stays selectable (`--prompt-version 1`).
+- **Why:** a general failure, not a task-specific fix: in every early local run
+  (`qwen2.5-coder:3b`) the first attempt omitted `import simagent_io` and failed with a
+  `NameError`, so baseline mode measured mostly this one omission.
+- **Before/after:** benchmark round 1 = v1 on `qwen2.5-coder:3b` (baseline + repair); round 2 =
+  v2 on every model. Numbers: see "Prompt v1 vs v2" in `docs/eval_results.md` (generated from
+  `results/`), summarised below once the runs are complete.

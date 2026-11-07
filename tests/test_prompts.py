@@ -72,3 +72,10 @@ def test_prompt_versions() -> None:
 
 def test_validate_request_strips() -> None:
     assert prompts.validate_request("  hi  ") == "hi"
+
+
+def test_prompt_v2_adds_only_the_import_instruction() -> None:
+    v1, v2 = prompts.SYSTEMS[1], prompts.SYSTEMS[2]
+    assert "Start every script with `import photonsim as ps` and `import simagent_io`" in v2
+    assert "Start every script" not in v1
+    assert len(v2.splitlines()) == len(v1.splitlines()) + 2  # one rule rewritten, nothing else

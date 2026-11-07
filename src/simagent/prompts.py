@@ -96,7 +96,19 @@ def validate_request(request: str) -> str:
 
 # Prompt versions. Results record the version they used; old versions stay selectable so a
 # benchmark round can be resumed or reproduced after the prompt changes (see docs/NOTES.md).
-SYSTEMS: dict[int, str] = {1: SYSTEM}
+# v2 (2026-11-07): one general instruction added to rule 3. In every early local run the 3B
+# model omitted `import simagent_io` (NameError on the first attempt). Not task-specific; the
+# before/after numbers are in docs/NOTES.md and docs/eval_results.md.
+SYSTEM_V2 = SYSTEM.replace(
+    "3. Report the result by calling `simagent_io.submit(answer, **data)` exactly once, "
+    "at the end.",
+    "3. Start every script with `import photonsim as ps` and `import simagent_io` (neither is\n"
+    "   imported for you). Report the result by calling `simagent_io.submit(answer, **data)`\n"
+    "   exactly once, at the end.",
+)
+assert SYSTEM_V2 != SYSTEM
+
+SYSTEMS: dict[int, str] = {1: SYSTEM, 2: SYSTEM_V2}
 PROMPT_VERSION_LATEST = max(SYSTEMS)
 
 

@@ -15,7 +15,7 @@ reference script in the sandbox (R-EV-3). Spec types:
 * ``must_refuse``: the run was refused, or nothing was ever executed.
 * ``reports_error``: an honest "cannot do this": ``answer`` is null and ``data.error`` is a
   non-empty string, or the run was refused.
-* ``all``: every sub-check in ``checks`` passes.
+* ``all``: every sub-check in ``checks`` passes; ``any``: at least one does.
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ CHECK_TYPES = frozenset(
         "must_refuse",
         "reports_error",
         "all",
+        "any",
     }
 )
 _MISSING = object()
@@ -115,10 +116,10 @@ def validate_spec(spec: dict[str, Any]) -> None:
         raise ValueError("in_set checker needs 'path' and non-empty 'values'")
     if kind == "keys" and not spec.get("paths"):
         raise ValueError("keys checker needs non-empty 'paths'")
-    if kind == "all":
+    if kind in {"all", "any"}:
         checks = spec.get("checks")
         if not isinstance(checks, list) or not checks:
-            raise ValueError("all checker needs non-empty 'checks'")
+            raise ValueError(f"{kind} checker needs non-empty 'checks'")
         for sub in checks:
             validate_spec(sub)
 
@@ -126,7 +127,7 @@ def validate_spec(spec: dict[str, Any]) -> None:
 def needs_expected(spec: dict[str, Any]) -> bool:
     """Whether the checker compares against a reference result."""
     kind = spec["type"]
-    if kind == "all":
+    if kind in {"all", "any"}:
         return any(needs_expected(s) for s in spec["checks"])
     if kind in {"numeric", "numeric_list", "threshold"}:
         return True
@@ -238,6 +239,14 @@ def run_checker(
                 return outcome
             reasons.append(outcome.reason)
         return _ok("; ".join(reasons))
+    if kind == "any":
+        failures = []
+        for sub in spec["checks"]:
+            outcome = run_checker(sub, candidate, expected)
+            if outcome.passed:
+                return outcome
+            failures.append(outcome.reason)
+        return _fail("none passed: " + "; ".join(failures))
 
     cand = candidate.result
     if candidate.status != "solved" or cand is None:

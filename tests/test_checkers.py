@@ -143,6 +143,16 @@ def test_all_combines() -> None:
     assert check(good, solved(0.25))
 
 
+def test_any_passes_if_one_passes() -> None:
+    spec = {"type": "any", "checks": [{"type": "must_refuse"}, NUMERIC]}
+    assert check(spec, CheckInput("refused", None, executed=False))
+    assert check(spec, solved(0.25))
+    outcome = run_checker(spec, solved(0.9), EXPECTED)
+    assert not outcome.passed
+    assert outcome.reason.startswith("none passed")
+    assert needs_expected(spec)
+
+
 def test_get_path() -> None:
     obj = {"a": [{"b": 1}], "C": 2}
     assert get_path(obj, "a.0.b") == 1
@@ -164,6 +174,7 @@ def test_get_path() -> None:
         {"type": "keys", "paths": []},
         {"type": "all", "checks": []},
         {"type": "all", "checks": [{"type": "nope"}]},
+        {"type": "any", "checks": []},
         {"type": "equals"},
     ],
 )

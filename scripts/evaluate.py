@@ -109,7 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     summary = summarise(read_records(cfg.results_path))
-    cfg.summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    text = json.dumps(summary, indent=2) + "\n"
+    cfg.summary_path.write_text(text, encoding="utf-8", newline="\n")
     print(f"passed {summary['passed']}/{summary['tasks']}; summary written to {cfg.summary_path}")
     return 0
 

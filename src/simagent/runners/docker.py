@@ -132,7 +132,13 @@ class DockerRunner(Runner):
         nonce = secrets.token_hex(16)
         with tempfile.TemporaryDirectory(prefix="simagent-") as tmp:
             script_dir = Path(tmp)
-            (script_dir / "script.py").write_text(code, encoding="utf-8", newline="\n")
+            script = script_dir / "script.py"
+            script.write_text(code, encoding="utf-8", newline="\n")
+            # mkdtemp creates the dir as 0700 for the host user; the container's non-root user
+            # (uid 10001) must be able to read the bind-mounted script on Linux. The mount stays
+            # read-only, so this grants read access only (Docker Desktop on Windows ignores it).
+            script_dir.chmod(0o755)
+            script.chmod(0o644)
             cmd = self.command(exe, container, script_dir, nonce)
             start = time.monotonic()
             proc = subprocess.Popen(

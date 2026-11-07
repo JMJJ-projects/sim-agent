@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -229,6 +230,9 @@ def stub(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Stub:
 
     def command(self: DockerRunner, exe: str, container: str, d: Path, nonce: str) -> list[str]:
         assert (d / "script.py").read_text(encoding="utf-8") == "print(1)\n"
+        if os.name == "posix":  # the container user must be able to read the mounted script
+            assert d.stat().st_mode & 0o005 == 0o005
+            assert (d / "script.py").stat().st_mode & 0o004
         return [sys.executable, str(script), state.mode, nonce]
 
     monkeypatch.setattr(docker, "docker_executable", lambda: "docker")

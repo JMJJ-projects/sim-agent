@@ -61,3 +61,21 @@ def solve(request: str, deps: AgentDeps, max_attempts: int = DEFAULT_MAX_ATTEMPT
     out = graph.invoke(state, config={"recursion_limit": 6 * max_attempts + 10})
     final: FinalAnswer = out["final"]
     return final
+
+
+def mermaid() -> str:
+    """Mermaid source of the agent graph (``docs/graph.mmd``)."""
+    from simagent.llm import ScriptedChatModel
+    from simagent.runners.base import Runner, RunResult
+
+    class _NoRun(Runner):
+        """Placeholder: the diagram only needs the graph structure, nothing is executed."""
+
+        def run(self, code: str, timeout_s: float = 60.0) -> RunResult:
+            raise RuntimeError("diagram-only runner")
+
+    deps = AgentDeps(
+        model=ScriptedChatModel(replies=[]), runner=_NoRun(), provider="fake", model_name="-"
+    )
+    text: str = build_graph(deps).get_graph().draw_mermaid()
+    return text.rstrip() + "\n"

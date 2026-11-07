@@ -27,7 +27,10 @@ sandbox-image:
 api-doc:
 	python scripts/gen_api_doc.py
 
+graph-doc:
+	python scripts/export_graph.py
+
 materials:
 	python scripts/build_materials.py
 
-.PHONY: sandbox-image install lint format test test-docker cov check api-doc materials
+.PHONY: sandbox-image install lint format test test-docker cov check api-doc graph-doc materials

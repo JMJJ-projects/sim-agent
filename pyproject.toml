@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sim-agent"
+version = "0.1.0"
+description = "Natural language to sandboxed photon-transport simulation code, with a self-correction loop, an MCP server and an evaluation harness."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "John-M" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.26",
+    "pydantic>=2.7,<3",
+    "typer>=0.12",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+    "langgraph>=1.0,<2",
+    "langchain-core>=1.0,<2",
+    "mcp>=1.10",
+]
+
+[project.optional-dependencies]
+ollama = ["langchain-ollama>=1.0,<2"]
+groq = ["langchain-groq>=1.0,<2"]
+openai = ["langchain-openai>=1.0,<2"]
+report = ["matplotlib>=3.8"]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "matplotlib>=3.8",
+]
+
+[project.scripts]
+simagent = "simagent.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/photonsim", "src/simagent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "runs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "PT", "C4"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+packages = ["photonsim", "simagent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "docker: needs a running Docker daemon and the simagent-sandbox image",
+    "slow: slower tests (performance checks)",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

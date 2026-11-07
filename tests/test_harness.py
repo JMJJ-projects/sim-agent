@@ -14,6 +14,7 @@ from simagent.evaluation.harness import EvalConfig, cost_usd, fake_model_factory
 from simagent.evaluation.summary import read_records, summarise
 from simagent.evaluation.tasks import Task, load_tasks
 from simagent.llm import ScriptedChatModel
+from simagent.prompts import PROMPT_VERSION_LATEST
 from simagent.runners import LocalRunner
 from simagent.runners.base import Runner, RunResult
 
@@ -254,6 +255,11 @@ def test_evaluate_script_smoke(tmp_path: Path) -> None:
     args += ["--results-dir", str(tmp_path / "results"), "--runs-dir", str(tmp_path / "runs")]
     assert module.main(args) == 0
     summary = json.loads(
-        (tmp_path / "results" / "fake-scripted-repair.summary.json").read_text(encoding="utf-8")
+        (
+            tmp_path
+            / "results"
+            / f"{harness.run_name_for('fake', 'scripted', 'repair', PROMPT_VERSION_LATEST)}"
+            ".summary.json"
+        ).read_text(encoding="utf-8")
     )
     assert summary["tasks"] == 3

@@ -95,7 +95,7 @@ The CI workflow's `sandbox` job builds the image and runs these Docker tests, an
 | model | prompt | baseline (1 attempt) | repair (up to 4) | median latency, repair | tokens in / out per task, repair | cost |
 |---|---|---|---|---|---|---|
 | ollama `qwen2.5-coder:3b` | v1 | 19 % (7/36) | 56 % (20/36) | 12.7 s | 3,742 / 553 | n/a: local model |
-| ollama `qwen2.5-coder:3b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |
+| ollama `qwen2.5-coder:3b` | v2 | 64 % (23/36) | 67 % (24/36) | 4.8 s | 2,406 / 385 | n/a: local model |
 | groq `openai/gpt-oss-120b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |
 | ollama `qwen2.5-coder:1.5b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |
 | ollama `qwen2.5:3b` | v2 | not run yet | not run yet | not run yet | not run yet | not run yet |

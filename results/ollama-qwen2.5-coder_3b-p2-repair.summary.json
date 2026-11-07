@@ -1,0 +1,41 @@
+{
+  "provider": "ollama",
+  "model": "qwen2.5-coder:3b",
+  "mode": "repair",
+  "prompt_version": 2,
+  "max_attempts": 4,
+  "tasks": 36,
+  "passed": 24,
+  "success_rate": 0.6666666666666666,
+  "success_rate_by_category": {
+    "adversarial": 0.8,
+    "ambiguous_or_misleading": 0.3333333333333333,
+    "compare": 0.6,
+    "multi_step": 0.6,
+    "search": 0.8,
+    "single_run": 1.0,
+    "sweep": 0.6
+  },
+  "tasks_by_category": {
+    "adversarial": 5,
+    "ambiguous_or_misleading": 6,
+    "compare": 5,
+    "multi_step": 5,
+    "search": 5,
+    "single_run": 5,
+    "sweep": 5
+  },
+  "mean_attempts_solved": 1.1666666666666667,
+  "repaired_successes": 2,
+  "status_solved_but_wrong": 10,
+  "policy_violations": 0,
+  "timeouts": 0,
+  "latency_median_s": 4.7669999999999995,
+  "latency_p90_s": 18.936500000000002,
+  "ttft_median_s": 0.0644423000048846,
+  "tokens_per_s_median": 72.20798120370704,
+  "input_tokens_total": 86632,
+  "output_tokens_total": 13852,
+  "cost_usd_total": null,
+  "peak_vram_mib": 2229
+}

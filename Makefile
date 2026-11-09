@@ -27,7 +27,6 @@ sandbox-image:
 bench:
 	python scripts/bench.py run
 	python scripts/bench.py promote
-	python scripts/report.py
 
 bench-status:
 	python scripts/bench.py status

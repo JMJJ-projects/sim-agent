@@ -124,8 +124,9 @@ tolerance from the reference standard error, threshold within one grid step, mus
 with no LLM judge. Baseline = the same graph with one attempt. Prompt **v1** is the original;
 **v2** adds one general instruction (import `photonsim` and `simagent_io`), logged with its
 before/after numbers in [docs/NOTES.md](docs/NOTES.md). Run it yourself:
-`python scripts/evaluate.py --provider ollama --model qwen2.5-coder:3b --mode repair --resume`,
-or `make bench` for the whole plan in [data/bench_plan.json](data/bench_plan.json).
+`python scripts/evaluate.py --provider ollama --model qwen2.5-coder:3b --mode repair --resume`.
+The v1 runs followed [data/bench_plan.json](data/bench_plan.json); `make bench` now runs the v2
+plan in [data/bench_plan_v2.json](data/bench_plan_v2.json) (seeds and the held-out set).
 
 ## Design decisions
 
@@ -169,7 +170,7 @@ or `make bench` for the whole plan in [data/bench_plan.json](data/bench_plan.jso
 | `make test` / `make test-docker` / `make cov` | test suite / Docker isolation tests only / coverage |
 | `make sandbox-image` | build the `simagent-sandbox` image |
 | `make eval-smoke` | 3-task evaluation with the fake provider (harness check, as in CI) |
-| `make bench` / `make bench-status` | run the benchmark plan resumably, promote complete runs, regenerate the report / show progress |
+| `make bench` / `make bench-status` | run the v2 benchmark plan resumably and promote complete runs / show progress and ETA |
 | `make report` | regenerate `docs/eval_results.md`, the chart and the README results block |
 | `make api-doc` / `make graph-doc` / `make materials` | regenerate `docs/api.md` / `docs/graph.mmd` / the NIST material table |
 

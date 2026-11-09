@@ -1,0 +1,14 @@
+{
+  "description": "Planned v2 benchmark runs (PLAN-v2 Phase 6). scripts/bench.py expands each run into one results file per (task set, seed) and runs them in order with --resume. Block 6.3 (quantisation: 3B Q8_0 and a 7B coder Q4_K_M) is added at Phase 6 once the exact Ollama tags are checked (R-QV-1); the Groq delay is re-checked against the official free-tier limits at CHECKPOINT C.",
+  "runs": [
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:3b", "mode": "baseline", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:3b", "mode": "repair", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:3b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:1.5b", "mode": "baseline", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:1.5b", "mode": "repair", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:1.5b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
+    {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "baseline", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"},
+    {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "repair", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"},
+    {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"}
+  ]
+}

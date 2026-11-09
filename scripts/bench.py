@@ -1,105 +1,95 @@
-"""Benchmark driver for data/bench_plan.json (PLAN.md Phase 7).
+"""Benchmark driver for the v2 plan (PLAN-v2 2.4).
 
-    python scripts/bench.py run [--only MODEL] [--provider P]   # run planned runs, resumable
-    python scripts/bench.py status                               # progress of every planned run
-    python scripts/bench.py promote                              # copy complete runs to results/
+    python scripts/bench.py run [--plan data/bench_plan_v2.json] [--only MODEL] [--round R]
+    python scripts/bench.py [status] [...]  # progress of every planned results file + ETA
+    python scripts/bench.py promote [...]   # copy complete results files to results/v2/
 
-Runs write to the staging directory runs/bench/results (gitignored). Only complete runs (every
-task scored) are promoted to results/, so committed results and the generated report never
-contain half-finished runs.
+Each plan run expands into one results file per (task set, seed). Runs write to the staging
+directory runs/bench/v2/results (gitignored) and resume from there; only complete files (every
+task scored) are promoted to results/v2/, so committed results never contain half-finished runs.
+The ETA is the remaining task count times the median per-task time of finished records.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
-from simagent.evaluation.harness import done_task_ids, run_name_for
-from simagent.evaluation.tasks import load_tasks
+from simagent import prompts
+from simagent.evaluation.benchplan import (
+    Unit,
+    eta_s,
+    expand,
+    format_duration,
+    load_plan,
+    progress,
+    task_seconds,
+)
+from simagent.evaluation.tasks import TASK_SETS, load_task_set
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGING = ROOT / "runs" / "bench" / "results"
-ARTIFACTS = ROOT / "runs" / "bench" / "artifacts"
-RESULTS = ROOT / "results"
+STAGING = ROOT / "runs" / "bench" / "v2" / "results"
+ARTIFACTS = ROOT / "runs" / "bench" / "v2" / "artifacts"
+RESULTS = ROOT / "results" / "v2"
 
 
-def plan_entries(only: str | None = None, provider: str | None = None) -> list[dict[str, Any]]:
-    plan = json.loads((ROOT / "data" / "bench_plan.json").read_text(encoding="utf-8"))
-    entries: list[dict[str, Any]] = plan["runs"]
-    if only:
-        entries = [e for e in entries if e["model"] == only]
-    if provider:
-        entries = [e for e in entries if e["provider"] == provider]
-    return entries
-
-
-def name_of(entry: dict[str, Any]) -> str:
-    return run_name_for(entry["provider"], entry["model"], entry["mode"], entry["prompt_version"])
-
-
-def command(entry: dict[str, Any]) -> list[str]:
-    cmd = [
-        sys.executable,
-        "-u",
-        str(ROOT / "scripts" / "evaluate.py"),
-        "--provider",
-        entry["provider"],
-        "--model",
-        entry["model"],
-        "--prompt-version",
-        str(entry["prompt_version"]),
-        "--mode",
-        entry["mode"],
-        "--resume",
-        "--results-dir",
-        str(STAGING),
-        "--runs-dir",
-        str(ARTIFACTS),
+def select(units: list[Unit], only: str | None, round_: str | None) -> list[Unit]:
+    return [
+        u
+        for u in units
+        if (only is None or u.model == only) and (round_ is None or u.round == round_)
     ]
-    if entry.get("delay_s"):
-        cmd += ["--delay", str(entry["delay_s"])]
-    if entry.get("vram"):
-        cmd.append("--vram")
-    return cmd
 
 
-def progress(entry: dict[str, Any], n_tasks: int) -> tuple[int, int]:
-    return len(done_task_ids(STAGING / f"{name_of(entry)}.jsonl")), n_tasks
+def print_status(units: list[Unit], counts: dict[str, int], staging: Path) -> None:
+    rows = progress(units, staging, counts)
+    for row in rows:
+        print(f"{row.unit.name:<62} {row.done:>3}/{row.total}  {row.state}")
+    known, unknown = eta_s(rows, task_seconds(staging, units))
+    done = sum(r.done for r in rows)
+    total = sum(r.total for r in rows)
+    line = f"tasks done {done}/{total}; ETA for the rest: {format_duration(known)}"
+    if unknown:
+        line += f" + {unknown} tasks without timing data yet (run a probe first)"
+    print(line, flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("action", choices=["run", "status", "promote"])
+    ap.add_argument("action", nargs="?", default="status", choices=["run", "status", "promote"])
+    ap.add_argument("--plan", type=Path, default=ROOT / "data" / "bench_plan_v2.json")
     ap.add_argument("--only", help="only planned runs for this model tag")
-    ap.add_argument("--provider", help="only planned runs for this provider")
+    ap.add_argument("--round", dest="round_", help="only planned runs of this round/block")
     args = ap.parse_args(argv)
-    tasks = load_tasks(ROOT / "data" / "tasks.jsonl")
-    entries = plan_entries(args.only, args.provider)
+    units = select(
+        expand(load_plan(args.plan), prompts.resolve_version(None)), args.only, args.round_
+    )
+    counts = {name: len(load_task_set(name, ROOT)) for name in TASK_SETS}
+    if args.action == "status":
+        print_status(units, counts, STAGING)
+        return 0
     if args.action == "run":
-        for entry in entries:
-            print(f"== {name_of(entry)}", flush=True)
-            if subprocess.run(command(entry), check=False).returncode != 0:
-                print(f"run {name_of(entry)} failed; re-run to resume", file=sys.stderr)
+        for unit in units:
+            print_status(units, counts, STAGING)
+            print(f"== {unit.name}", flush=True)
+            cmd = [sys.executable, "-u", str(ROOT / "scripts" / "evaluate.py")]
+            cmd += unit.evaluate_args(STAGING, ARTIFACTS)
+            if subprocess.run(cmd, check=False).returncode != 0:
+                print(f"run {unit.name} failed; re-run to resume", file=sys.stderr)
                 return 1
         return 0
-    for entry in entries:
-        done, total = progress(entry, len(tasks))
-        name = name_of(entry)
-        if args.action == "status":
-            state = "complete" if done == total else ("not started" if done == 0 else "partial")
-            print(f"{name:<45} {done:>3}/{total}  {state}")
-        elif done == total:
-            RESULTS.mkdir(exist_ok=True)
-            for suffix in (".jsonl", ".summary.json"):
-                src = STAGING / f"{name}{suffix}"
-                if src.is_file():
-                    shutil.copyfile(src, RESULTS / src.name)
-            print(f"promoted {name}")
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    for row in progress(units, STAGING, counts):
+        if row.state != "complete":
+            continue
+        for suffix in (".jsonl", ".summary.json"):
+            src = STAGING / f"{row.unit.name}{suffix}"
+            if src.is_file():
+                shutil.copyfile(src, RESULTS / src.name)
+        print(f"promoted {row.unit.name}")
     return 0
 
 

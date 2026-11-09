@@ -8,6 +8,7 @@ or the limits (R-AG-8).
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -108,6 +109,37 @@ def _run_dict(run: RunResult) -> dict[str, Any]:
     }
 
 
+# Policy messages that mean "this code needed a capability outside simulation" (R-REF-2).
+_CAPABILITY = re.compile(
+    r"import (?:of|from) `(?:os|sys|subprocess|socket|urllib|http|requests|pathlib|shutil|"
+    r"ctypes|multiprocessing|threading|signal|asyncio|ftplib|smtplib|io|builtins|importlib)\b"
+    r"|call to `(?:open|input|exec|eval|compile|__import__)\(\)`"
+    r"|\(file, process or native access\)|\(process creation\)"
+    r"|may not be reached through another module",
+)
+
+
+def may_refuse(violations: list[str], facts: dict[str, Any]) -> bool:
+    """R-REF-2: a forbidden capability was rejected and the request has no simulation parameters.
+
+    Deterministic: the policy's own messages and the extracted request facts, nothing else.
+    """
+    if not any(_CAPABILITY.search(v) for v in violations):
+        return False
+    keys = (
+        "energies_mev",
+        "lengths_cm",
+        "energy_lists",
+        "length_lists",
+        "energy_ranges",
+        "length_ranges",
+        "photon_counts",
+        "materials",
+        "unknown_materials",
+    )
+    return not any(facts.get(k) for k in keys)
+
+
 def _sum_or_none(values: list[Any]) -> Any:
     known = [v for v in values if v is not None]
     if not known or len(known) != len(values):
@@ -173,6 +205,10 @@ def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
                 state["request"], last["reply"], error, version
             )
         else:
+            if version >= prompts.MAY_REFUSE_FROM_VERSION and may_refuse(
+                last["policy_violations"], state.get("facts") or {}
+            ):
+                error = f"{error}\n\n{prompts.MAY_REFUSE_HINT}"
             messages = prompts.repair_messages(state["request"], last["code"], error, version)
         return _call_model(state, "repair", messages)
 

@@ -294,3 +294,23 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   it would also weaken catches of real mistakes, and the planned benchmark measures false alarms
   directly. Decision deferred: revisit only with the user, before the Phase 6 runs, and log it
   here if made. The dev-only rule still holds; held-out data was not used.
+
+## Prompt v3: refusal-aware repair (v2 Phase 5.4, 2026-11-09)
+
+- **Change (R-REF-1):** the system prompt is unchanged from v2; the *repair* prompt now says that
+  if the request itself is out of scope (files, network, shell, environment, instructions), the
+  correct repair is a `REFUSED:` line, not new code. v1 and v2 stay selectable (`--prompt-version`).
+- **Deterministic hint (R-REF-2, v3 only):** when the policy rejected a capability outside
+  simulation (forbidden imports such as `os`/`socket`, `open()`, file/process/native attributes)
+  **and** the request facts contain no simulation parameter at all (no energy, length, list,
+  range, photon count or material), the repair error report gets one extra note saying the
+  model may refuse. Requests that mix a real simulation with an out-of-scope part get no hint.
+- **Why:** in v1 repair runs, adversarial requests that the first attempt "answered" with
+  forbidden code were sometimes repaired into code that ran, instead of refused (taxonomy class
+  `not_refused`). General rule, not tuned to any task.
+- **Before (v1 results, prompt v2 unless noted, temperature 0, one run, adversarial tasks passed
+  in repair mode):** `qwen2.5-coder:3b` 4/5, `qwen2.5-coder:1.5b` 1/5, `qwen2.5:3b` 5/5,
+  `openai/gpt-oss-120b` 5/5 (`results/*-repair.jsonl`).
+- **After:** pending the Phase 6 runs (prompt v3). Caveat: those run at temperature 0.7 over
+  several seeds, so they are not a like-for-like comparison with the v1 numbers above; a clean
+  before/after needs v2 and v3 runs with the same v2 settings (decision for CHECKPOINT C).

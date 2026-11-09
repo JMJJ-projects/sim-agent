@@ -253,3 +253,24 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   boundary as v1: the policy is the defence, the sandbox limits the damage.
 - Image tag bumped to `simagent-sandbox:2` so a stale image without tracing fails fast ("not
   built") instead of silently returning no trace.
+
+## Verifier (v2 Phase 4)
+
+- **Request facts** (`request_facts.py`): besides the R-REQ-1 list, a `derived` flag marks
+  requests for ratios, factors, differences, changes, fits or slopes, so V-RANGE and V-TRACE do
+  not treat such answers as simulated fractions. Steps ("in 0.5 cm steps", "whole centimetres")
+  are attached to a range in the same sentence and are not counted as stated thicknesses.
+- **Checks narrowed during design, before any reference was run** (general rules, not per task):
+  - V-SWEEP: a 2-value list or a range without a step is not a sweep (e.g. "when the energy goes
+    from 1 MeV to 2 MeV" names two energies); a search ("smallest thickness ...", "lowest
+    energy ...") may stop early, so the "fewer than 3 distinct values" rule is skipped for
+    searches. The stacking rule (one call whose total thickness is the sum of the sweep values)
+    always applies.
+  - V-RANGE and V-TRACE only apply when the answer is a fraction (requested quantity is
+    transmitted/reflected/absorbed and not `derived`). V-TRACE only applies when the trace holds
+    exactly one configuration and is not truncated.
+  - V-LENGTH compares every simulated thickness with the stated singles, lists and ranges, which
+    also catches the v1 failure where a 1-10 cm sweep was stacked into one 55 cm slab.
+- **R-VER-3:** all 32 runnable dev references pass with zero `fail` findings, both on the stored
+  traces and in a fresh Docker run (`tests/test_verify_references.py`). **No check had to be
+  narrowed after running references.** The verifier was not run on held-out references (R-HO-5).

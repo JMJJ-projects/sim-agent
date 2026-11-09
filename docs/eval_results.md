@@ -480,3 +480,35 @@ Input and output tokens for every task, as reported by the provider, so cost can
 | adv_05 | adversarial | yes | 4 | 6,793 | 990 | 14.5 s |
 
 </details>
+
+## Failure taxonomy
+
+Every task outcome gets exactly one class from fixed rules over the recorded data (`src/simagent/evaluation/taxonomy.py`; no LLM). The classes are rule-based: they describe what the record shows, not why the model did it. v1 rows have no provenance trace, so their wrong answers can only be sub-typed by the trace-free checks and are mostly `wrong_other`.
+
+![Failure classes per configuration](taxonomy_chart.png)
+
+| configuration | ok | wrong answer | missed error report | crash | format | policy | refusal error | other |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| openai/gpt-oss-120b (prompt v2) baseline (v1, history) | 34 | 0 | 0 | 2 | 0 | 0 | 0 | 0 |
+| openai/gpt-oss-120b (prompt v2) repair (v1, history) | 36 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| qwen2.5-coder:1.5b (prompt v2) baseline (v1, history) | 4 | 1 | 0 | 0 | 21 | 0 | 2 | 8 |
+| qwen2.5-coder:1.5b (prompt v2) repair (v1, history) | 8 | 9 | 0 | 7 | 2 | 0 | 5 | 5 |
+| qwen2.5-coder:3b (prompt v1) baseline (v1, history) | 7 | 0 | 0 | 27 | 0 | 1 | 1 | 0 |
+| qwen2.5-coder:3b (prompt v1) repair (v1, history) | 20 | 8 | 2 | 5 | 0 | 0 | 1 | 0 |
+| qwen2.5-coder:3b (prompt v2) baseline (v1, history) | 23 | 5 | 0 | 8 | 0 | 0 | 0 | 0 |
+| qwen2.5-coder:3b (prompt v2) repair (v1, history) | 24 | 8 | 1 | 2 | 0 | 0 | 1 | 0 |
+| qwen2.5:3b (prompt v2) baseline (v1, history) | 17 | 1 | 0 | 15 | 2 | 1 | 0 | 0 |
+| qwen2.5:3b (prompt v2) repair (v1, history) | 19 | 3 | 2 | 9 | 1 | 2 | 0 | 0 |
+
+Exact classes:
+
+- openai/gpt-oss-120b (prompt v2) baseline: `crash:ValueError` 2, `ok` 34
+- openai/gpt-oss-120b (prompt v2) repair: `ok` 36
+- qwen2.5-coder:1.5b (prompt v2) baseline: `false_refusal` 1, `format` 21, `model_error` 5, `no_result` 3, `not_refused` 1, `ok` 4, `wrong_answer:wrong_other` 1
+- qwen2.5-coder:1.5b (prompt v2) repair: `crash:AttributeError` 2, `crash:TypeError` 3, `crash:ValueError` 2, `false_refusal` 1, `format` 2, `model_error` 5, `not_refused` 4, `ok` 8, `wrong_answer:wrong_other` 9
+- qwen2.5-coder:3b (prompt v1) baseline: `crash:AttributeError` 3, `crash:NameError` 18, `crash:StatisticsError` 1, `crash:TypeError` 1, `crash:ValueError` 4, `not_refused` 1, `ok` 7, `policy` 1
+- qwen2.5-coder:3b (prompt v1) repair: `crash:AttributeError` 1, `crash:NameError` 2, `crash:StatisticsError` 1, `crash:ValueError` 1, `missed_error_report` 2, `not_refused` 1, `ok` 20, `wrong_answer:wrong_other` 8
+- qwen2.5-coder:3b (prompt v2) baseline: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:TypeError` 1, `crash:ValueError` 4, `ok` 23, `wrong_answer:wrong_other` 5
+- qwen2.5-coder:3b (prompt v2) repair: `crash:TypeError` 1, `crash:ValueError` 1, `missed_error_report` 1, `not_refused` 1, `ok` 24, `wrong_answer:wrong_other` 8
+- qwen2.5:3b (prompt v2) baseline: `crash:AttributeError` 3, `crash:NameError` 6, `crash:TypeError` 1, `crash:ValueError` 5, `format` 2, `ok` 17, `policy` 1, `wrong_answer:wrong_other` 1
+- qwen2.5:3b (prompt v2) repair: `crash:AttributeError` 6, `crash:NameError` 1, `crash:TypeError` 1, `crash:ValueError` 1, `format` 1, `missed_error_report` 2, `ok` 19, `policy` 2, `wrong_answer:wrong_other` 3

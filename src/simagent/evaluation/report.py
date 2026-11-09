@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from simagent.evaluation import taxonomy_report
 from simagent.evaluation.summary import read_records, summarise
 from simagent.evaluation.tasks import CATEGORIES
 
@@ -425,7 +426,8 @@ def render_chart(
 def build(root: Path, results_dir: Path | None = None) -> tuple[dict[Key, dict[str, Any]], str]:
     """Load everything the report needs and render the markdown."""
     runs, plan, prices = _inputs(root, results_dir)
-    return runs, render_markdown(runs, plan, prices)
+    taxonomy = taxonomy_report.render_section(taxonomy_report.taxonomy_rows(root, results_dir))
+    return runs, render_markdown(runs, plan, prices) + taxonomy
 
 
 def _inputs(
@@ -458,4 +460,10 @@ def write_report(root: Path, results_dir: Path | None = None, docs_dir: Path | N
         render_chart(runs, chart, [key for _, key in _ordered(plan, runs)])
     elif chart.exists():
         chart.unlink()
+    rows = taxonomy_report.taxonomy_rows(root, results_dir)
+    tax_chart = docs / taxonomy_report.CHART
+    if rows:
+        taxonomy_report.render_chart(rows, tax_chart)
+    elif tax_chart.exists():
+        tax_chart.unlink()
     return len(runs)

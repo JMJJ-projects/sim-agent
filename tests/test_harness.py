@@ -391,3 +391,28 @@ def test_v1_file_without_header_is_still_read(tmp_path: Path) -> None:
     assert harness.read_header(tmp_path / "missing.jsonl") is None
     harness.check_resume_header(path, {"seed": 1})  # nothing to compare against
     assert harness.done_task_ids(path) == {"a"}
+
+
+def test_verify_mode_runs_with_the_same_budget(tmp_path: Path) -> None:
+    """Covers R-VER-4 and R-VER-6: verify mode in the evaluation, same attempt budget."""
+    cfg = _cfg(tmp_path, mode="verify", seed=0)
+    records = run_eval(
+        cfg, _pick("single_01", "sweep_01"), EXPECTED, Delegating(), fake_model_factory(ROOT)
+    )
+    assert [r["status"] for r in records] == ["solved", "solved"]  # references pass (R-VER-3)
+    assert all(r["passed"] for r in records)
+    assert records[0]["max_attempts"] == _cfg(tmp_path, mode="repair").attempts_for_mode
+
+
+def test_unverified_answer_is_still_scored(tmp_path: Path) -> None:
+    """Covers R-VER-5: solved_unverified is judged by the checker like solved."""
+    task = _pick("single_01")[0]
+    wrong = harness.fake_reply(task, ROOT).replace('"aluminium", 4.0', '"aluminium", 0.04')
+    assert wrong != harness.fake_reply(task, ROOT)
+    cfg = _cfg(tmp_path, mode="verify", max_attempts=1, seed=0)
+    (record,) = run_eval(
+        cfg, [task], EXPECTED, Delegating(), lambda t: ScriptedChatModel(replies=[wrong])
+    )
+    assert record["status"] == "solved_unverified"
+    assert record["passed"] is False
+    assert "vs expected" in record["check_reason"]  # the checker judged the answer

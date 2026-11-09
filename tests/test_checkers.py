@@ -193,3 +193,11 @@ def test_needs_expected() -> None:
 def test_missing_reference_is_an_error() -> None:
     with pytest.raises(ValueError, match="reference"):
         run_checker(NUMERIC, solved(0.25), None)
+
+
+def test_unverified_answers_are_judged_like_solved() -> None:
+    """Covers R-VER-5."""
+    spec = {"type": "equals", "path": "answer", "value": "lead"}
+    for status, passed in [("solved", True), ("solved_unverified", True), ("failed", False)]:
+        cand = CheckInput(status, {"answer": "lead", "data": {}}, executed=True)
+        assert run_checker(spec, cand, None).passed is passed

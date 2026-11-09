@@ -21,7 +21,7 @@ from simagent.evaluation.harness import MODES, done_task_ids, run_name_for
 from simagent.evaluation.summary import read_records
 from simagent.evaluation.tasks import TASK_SETS
 
-V2_MODES = (*MODES, "verify")  # "verify" arrives with the verifier (PLAN-v2 Phase 4)
+V2_MODES = MODES
 PROVIDERS = ("ollama", "groq", "openai", "fake")
 REQUIRED = {"round", "provider", "model", "mode", "task_set", "seeds"}
 OPTIONAL = {"delay_s", "vram", "prompt_version", "note"}

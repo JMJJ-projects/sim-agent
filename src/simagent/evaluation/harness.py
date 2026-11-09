@@ -1,6 +1,7 @@
 """Resumable evaluation runner (R-EV-5).
 
-For every task: a fresh agent run (baseline = ``max_attempts=1``, repair = the full loop), the
+For every task: a fresh agent run (baseline = ``max_attempts=1``, repair = the full loop,
+verify = the full loop plus verification with the same budget, R-VER-6), the
 deterministic checker against the reference result, and one JSON line appended to
 ``results/<run-name>.jsonl``. Lines are flushed one by one, so an interrupted run resumes with
 ``--resume``. Per-task artifacts go to ``runs/eval/<run-name>/<task-id>/`` (gitignored).
@@ -42,7 +43,8 @@ from simagent.runners.base import Runner
 from simagent.runners.local import LocalRunner
 from simagent.state import AgentState, AttemptRecord, FinalAnswer
 
-MODES = ("baseline", "repair")
+MODES = ("baseline", "repair", "verify")
+ANSWERED = ("solved", "solved_unverified")
 HEADER_KIND = "header"
 HEADER_SCHEMA = 2
 # Header fields that must match to resume a results file (sampling and run identity).
@@ -321,15 +323,16 @@ def evaluate_task(
         hooks=[collector, writer],
     )
     sampler = VramSampler() if cfg.sample_vram else None
+    verify = cfg.mode == "verify"
     start = time.perf_counter()
     error: str | None = None
     final: FinalAnswer | None = None
     try:
         if sampler is not None:
             with sampler:
-                final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode)
+                final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify)
         else:
-            final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode)
+            final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify)
     except Exception as exc:  # recorded as a failed task; the run goes on
         error = f"{type(exc).__name__}: {exc}"
     latency = time.perf_counter() - start
@@ -342,9 +345,10 @@ def evaluate_task(
             raise RateLimitedError(a["error"] or "rate limited")
     executed = any(a["run"] is not None for a in attempts)
     status = final["status"] if final is not None else "error"
+    # An unverified answer is still an answer: the checker judges it (R-VER-5).
     result = (
         {"answer": final["answer"], "data": final["data"]}
-        if final is not None and status == "solved"
+        if final is not None and status in ANSWERED
         else None
     )
     ref = expected.get(task.id, {}).get("result")

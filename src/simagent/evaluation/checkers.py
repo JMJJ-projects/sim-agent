@@ -249,7 +249,8 @@ def run_checker(
         return _fail("none passed: " + "; ".join(failures))
 
     cand = candidate.result
-    if candidate.status != "solved" or cand is None:
+    # solved_unverified still returned an answer: judge it like solved (R-VER-5).
+    if candidate.status not in ("solved", "solved_unverified") or cand is None:
         return _fail(f"status {candidate.status}, no result to check")
     if kind == "numeric":
         return _check_numeric(spec, cand, expected)

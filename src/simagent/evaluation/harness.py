@@ -60,9 +60,30 @@ RESUME_KEYS = (
 )
 
 
-def run_name_for(provider: str, model: str, mode: str, prompt_version: int) -> str:
-    """Default run name, safe as a file name: ``<provider>-<model>-p<version>-<mode>``."""
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", f"{provider}-{model}-p{prompt_version}-{mode}")
+def _file_safe(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", name)
+
+
+def run_name_for(
+    provider: str,
+    model: str,
+    mode: str,
+    prompt_version: int,
+    task_set: str | None = None,
+    seed: int | None = None,
+) -> str:
+    """Default run name, safe as a file name.
+
+    v1: ``<provider>-<model>-p<version>-<mode>``; v2 (a seed is given):
+    ``<provider>-<model>-p<version>-<mode>-<task set>-s<seed>`` (R-STAT-1).
+    """
+    base = f"{provider}-{model}-p{prompt_version}-{mode}"
+    return _file_safe(base + seed_suffix(task_set, seed))
+
+
+def seed_suffix(task_set: str | None, seed: int | None) -> str:
+    """``-<task set>-s<seed>`` for a v2 run; empty for a v1 run (no seed)."""
+    return "" if seed is None else f"-{task_set or 'dev'}-s{seed}"
 
 
 RATE_LIMIT_MARKERS = ("RateLimit", "rate limit", "rate_limit", "429")
@@ -192,8 +213,11 @@ class EvalConfig:
 
     @property
     def name(self) -> str:
-        return self.run_name or run_name_for(
-            self.provider, self.model, self.mode, self.prompt_version
+        """The run name; a custom ``run_name`` still gets the task-set/seed suffix (v2)."""
+        if self.run_name:
+            return _file_safe(self.run_name + seed_suffix(self.task_set, self.seed))
+        return run_name_for(
+            self.provider, self.model, self.mode, self.prompt_version, self.task_set, self.seed
         )
 
     @property

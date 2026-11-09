@@ -210,3 +210,15 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   completions: "best effort to sample deterministically", "Determinism is not guaranteed". It is
   passed via `model_kwargs` (verified in `ChatGroq._default_params`). So `seed_supported` is
   `true` for Groq, meaning "accepted", not "reproducible". The fake provider records `false`.
+
+## Seeds and task sets in the evaluation (v2 Phase 2.2)
+
+- `scripts/evaluate.py --task-set {dev,heldout,all} --seeds 0,1,2 --temperature 0.7` (0.7 is the
+  default, R-STAT-2). `all` runs dev and held-out as **separate** files, so each (configuration,
+  task set, seed) has its own results file and `--resume` works per file.
+- **Naming deviation from PLAN-v2 2.2:** files are
+  `results/v2/<provider>-<model>-p<prompt>-<mode>-<taskset>-s<seed>.jsonl`, i.e. the plan's name
+  plus the prompt version. Phase 5 changes the repair prompt (R-REF-1) and needs before/after
+  numbers; without the version both runs would map to one file (the header check would refuse to
+  mix them, but they could not coexist).
+- `--run-name` is now a prefix: `-<taskset>-s<seed>` is appended. `--limit` applies per task set.

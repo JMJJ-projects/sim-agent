@@ -128,6 +128,17 @@ def test_cost_from_dated_price_table() -> None:
     assert harness.price_note(prices, "groq", "m") is None
 
 
+def test_v2_run_names_carry_task_set_and_seed(tmp_path: Path) -> None:
+    """Covers R-STAT-1: one results file per (configuration, task set, seed)."""
+    assert harness.run_name_for("ollama", "qwen2.5-coder:3b", "verify", 3, "heldout", 4) == (
+        "ollama-qwen2.5-coder_3b-p3-verify-heldout-s4"
+    )
+    assert harness.run_name_for("fake", "m", "repair", 1) == "fake-m-p1-repair"  # v1
+    assert _cfg(tmp_path, seed=2).name == "fake-scripted-p1-repair-dev-s2"
+    assert _cfg(tmp_path, run_name="ci", seed=0, task_set="heldout").name == "ci-heldout-s0"
+    assert _cfg(tmp_path, run_name="ci").name == "ci"
+
+
 def test_run_name_is_file_safe() -> None:
     assert harness.run_name_for("ollama", "qwen2.5-coder:3b", "repair", 2) == (
         "ollama-qwen2.5-coder_3b-p2-repair"
@@ -243,26 +254,63 @@ def test_read_records_last_wins(tmp_path: Path) -> None:
     assert [r["passed"] for r in read_records(path)] == [True]
 
 
-@pytest.mark.docker
-def test_evaluate_script_smoke(tmp_path: Path) -> None:
-    """Covers R-EV-8: the CI smoke run, through the real script and the Docker sandbox."""
+def _evaluate_module() -> Any:
     spec = importlib.util.spec_from_file_location("evaluate", ROOT / "scripts" / "evaluate.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    args = ["--provider", "fake", "--mode", "repair", "--limit", "3"]
+    return module
+
+
+def test_evaluate_parses_seeds_and_task_sets() -> None:
+    """Covers R-STAT-1."""
+    ev = _evaluate_module()
+    assert ev.parse_seeds("0,1, 2") == [0, 1, 2]
+    for bad in ("", "a", "0,0", "-1"):
+        with pytest.raises(ConfigError, match="--seeds"):
+            ev.parse_seeds(bad)
+    assert ev.task_set_names("all") == ["dev", "heldout"]
+    assert ev.task_set_names("heldout") == ["heldout"]
+    args = ev.parse_args(["--mode", "repair"])
+    assert args.temperature == 0.7  # R-STAT-2
+    assert args.seeds == "0"
+    assert args.results_dir == ROOT / "results" / "v2"
+
+
+def test_evaluate_rejects_bad_temperature() -> None:
+    ev = _evaluate_module()
+    assert ev.main(["--provider", "fake", "--mode", "repair", "--temperature", "3"]) == 2
+
+
+@pytest.mark.docker
+def test_evaluate_script_smoke(tmp_path: Path) -> None:
+    """Covers R-EV-8, R-STAT-1: one results file per (task set, seed), through the real script
+    and the Docker sandbox; resume works per file and refuses changed settings."""
+    ev = _evaluate_module()
+    args = ["--provider", "fake", "--mode", "repair", "--limit", "2"]
+    args += ["--task-set", "all", "--seeds", "0,1"]
     args += ["--results-dir", str(tmp_path / "results"), "--runs-dir", str(tmp_path / "runs")]
-    assert module.main(args) == 0
-    summary = json.loads(
-        (
-            tmp_path
-            / "results"
-            / f"{harness.run_name_for('fake', 'scripted', 'repair', PROMPT_VERSION_LATEST)}"
-            ".summary.json"
-        ).read_text(encoding="utf-8")
-    )
-    assert summary["tasks"] == 3
+    assert ev.main(args) == 0
+    for task_set in ("dev", "heldout"):
+        for seed in (0, 1):
+            name = harness.run_name_for(
+                "fake", "scripted", "repair", PROMPT_VERSION_LATEST, task_set, seed
+            )
+            path = tmp_path / "results" / f"{name}.jsonl"
+            header = harness.read_header(path)
+            assert header is not None
+            assert (header["task_set"], header["seed"], header["temperature"]) == (
+                task_set,
+                seed,
+                0.7,
+            )
+            summary = json.loads(
+                (tmp_path / "results" / f"{name}.summary.json").read_text(encoding="utf-8")
+            )
+            assert summary["tasks"] == 2
+    assert ev.main([*args, "--resume"]) == 0  # nothing left to do
+    assert ev.main([*args, "--resume", "--temperature", "0.2"]) == 2
 
 
 def test_results_file_starts_with_sampling_header(tmp_path: Path) -> None:
@@ -312,9 +360,9 @@ def test_resume_refuses_different_settings(tmp_path: Path) -> None:
     run_eval(
         _cfg(tmp_path, seed=0, temperature=0.7, limit=1), tasks, EXPECTED, Delegating(), factory
     )
-    with pytest.raises(ConfigError, match=r"seed: file 0 vs now 1"):
+    with pytest.raises(ConfigError, match=r"temperature: file 0.7 vs now 0.2"):
         run_eval(
-            _cfg(tmp_path, seed=1, temperature=0.7, resume=True),
+            _cfg(tmp_path, seed=0, temperature=0.2, resume=True),
             tasks,
             EXPECTED,
             Delegating(),
@@ -328,8 +376,12 @@ def test_resume_refuses_different_settings(tmp_path: Path) -> None:
         factory,
     )
     assert [r["task_id"] for r in more] == ["ambig_01"]
-    path = _cfg(tmp_path).results_path
+    path = _cfg(tmp_path, seed=0).results_path
     assert sum(harness.is_header(json.loads(x)) for x in path.read_text().splitlines()) == 1
+    header = harness.read_header(path)
+    assert header is not None
+    with pytest.raises(ConfigError, match=r"seed: file 0 vs now 1"):
+        harness.check_resume_header(path, {**header, "seed": 1})
 
 
 def test_v1_file_without_header_is_still_read(tmp_path: Path) -> None:

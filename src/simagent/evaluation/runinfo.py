@@ -52,6 +52,23 @@ def _fetch_json(url: str) -> Any:
         return json.loads(resp.read().decode("utf-8"))
 
 
+def ollama_loaded(
+    base_url: str, model: str, fetch: FetchJson = _fetch_json
+) -> tuple[int, int] | None:
+    """``(size, size_vram)`` in bytes of ``model`` as loaded now, from ``/api/ps`` (R-QV-2)."""
+    try:
+        data = fetch(base_url.rstrip("/") + "/api/ps")
+    except (OSError, urllib.error.URLError, ValueError):
+        return None
+    wanted = {model, model if ":" in model else f"{model}:latest"}
+    for entry in data.get("models", []) if isinstance(data, dict) else []:
+        if entry.get("name") in wanted or entry.get("model") in wanted:
+            size, vram = entry.get("size"), entry.get("size_vram")
+            if isinstance(size, int) and isinstance(vram, int):
+                return size, vram
+    return None
+
+
 def ollama_model_info(
     base_url: str, model: str, fetch: FetchJson = _fetch_json
 ) -> dict[str, str | None] | None:

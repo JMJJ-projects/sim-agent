@@ -74,3 +74,33 @@ def test_ollama_model_info_unreachable() -> None:
 
     assert runinfo.ollama_model_info("http://h", "m", fetch) is None
     assert runinfo.ollama_model_info("http://h", "m", lambda url: ["not", "a", "dict"]) is None
+
+
+PS = {
+    "models": [
+        {"name": "qwen2.5-coder:7b", "size": 6_000_000_000, "size_vram": 3_500_000_000},
+        {"name": "other:1b", "size": 1, "size_vram": 1},
+    ]
+}
+
+
+def test_ollama_loaded_reads_size_and_vram() -> None:
+    """Covers R-QV-2: per-model size and size_vram from /api/ps."""
+    urls: list[str] = []
+
+    def fetch(url: str) -> Any:
+        urls.append(url)
+        return PS
+
+    assert runinfo.ollama_loaded("http://h/", "qwen2.5-coder:7b", fetch) == (
+        6_000_000_000,
+        3_500_000_000,
+    )
+    assert urls == ["http://h/api/ps"]
+    assert runinfo.ollama_loaded("http://h", "missing:3b", fetch) is None
+    assert runinfo.ollama_loaded("http://h", "m", lambda u: {"models": [{"name": "m"}]}) is None
+
+    def down(url: str) -> Any:
+        raise OSError("refused")
+
+    assert runinfo.ollama_loaded("http://h", "m", down) is None

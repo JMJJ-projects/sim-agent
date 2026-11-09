@@ -74,7 +74,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument(
         "--delay", type=float, default=0.0, help="seconds to wait between tasks (rate limits)"
     )
-    ap.add_argument("--vram", action="store_true", help="sample peak VRAM with nvidia-smi")
+    ap.add_argument(
+        "--vram",
+        action="store_true",
+        help="sample memory: per-model from Ollama /api/ps (Ollama runs) and nvidia-smi total",
+    )
     ap.add_argument("--no-warmup", action="store_true", help="skip the untimed warm-up call")
     ap.add_argument("--results-dir", type=Path, default=ROOT / "results" / "v2")
     ap.add_argument("--runs-dir", type=Path, default=ROOT / "runs" / "eval")
@@ -153,6 +157,9 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                     delay_s=args.delay,
                     sample_vram=args.vram,
+                    ollama_base_url=(
+                        settings.ollama_base_url if settings.provider == "ollama" else None
+                    ),
                     prices=load_prices(ROOT / "data" / "prices.json"),
                     task_set=set_name,
                     temperature=settings.temperature,

@@ -18,6 +18,7 @@ the harness end to end and says nothing about model accuracy (R-EV-8).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import shutil
@@ -35,6 +36,7 @@ from langchain_core.language_models import BaseChatModel
 from simagent.artifacts import ArtifactWriter
 from simagent.config import ConfigError
 from simagent.evaluation.checkers import CheckInput, needs_expected, run_checker
+from simagent.evaluation.runinfo import FetchJson, ollama_loaded
 from simagent.evaluation.tasks import Task
 from simagent.graph import solve
 from simagent.llm import ScriptedChatModel
@@ -178,6 +180,66 @@ class VramSampler:
             self._thread.join(timeout=10)
 
 
+MIB = 1024 * 1024
+
+
+class OllamaPsSampler:
+    """Per-model memory from Ollama's ``/api/ps`` on a thread (R-QV-2).
+
+    Unlike the ``nvidia-smi`` total (which includes the desktop), this is the model's own
+    footprint: peak ``size`` and ``size_vram`` while the task ran, and the fraction on the GPU.
+    """
+
+    def __init__(
+        self, base_url: str, model: str, interval_s: float = 0.5, fetch: FetchJson | None = None
+    ) -> None:
+        self.base_url, self.model, self.interval_s = base_url, model, interval_s
+        self.fetch = fetch
+        self.peak_size: int | None = None
+        self.peak_vram: int | None = None
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def sample(self) -> None:
+        got = (
+            ollama_loaded(self.base_url, self.model, self.fetch)
+            if self.fetch is not None
+            else ollama_loaded(self.base_url, self.model)
+        )
+        if got is None:
+            return
+        size, vram = got
+        self.peak_size = size if self.peak_size is None else max(self.peak_size, size)
+        self.peak_vram = vram if self.peak_vram is None else max(self.peak_vram, vram)
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            self.sample()
+            self._stop.wait(self.interval_s)
+
+    def __enter__(self) -> OllamaPsSampler:
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=10)
+
+    @staticmethod
+    def empty() -> dict[str, Any]:
+        return {"model_size_mib": None, "model_vram_mib": None, "gpu_fraction": None}
+
+    def fields(self) -> dict[str, Any]:
+        size, vram = self.peak_size, self.peak_vram
+        return {
+            "model_size_mib": round(size / MIB) if size is not None else None,
+            "model_vram_mib": round(vram / MIB) if vram is not None else None,
+            "gpu_fraction": round(vram / size, 4) if size and vram is not None else None,
+        }
+
+
 @dataclass
 class _Collector(AttemptHook):
     attempts: list[AttemptRecord] = field(default_factory=list)
@@ -207,6 +269,7 @@ class EvalConfig:
     rate_limit_retries: int = 6
     rate_limit_wait_s: float = 30.0
     sample_vram: bool = False
+    ollama_base_url: str | None = None  # set for Ollama runs: per-model VRAM via /api/ps
     prices: dict[str, Any] = field(default_factory=dict)
     task_set: str = "dev"
     temperature: float | None = None
@@ -353,17 +416,20 @@ def evaluate_task(
         hooks=[collector, writer],
     )
     sampler = VramSampler() if cfg.sample_vram else None
+    ps_sampler = (
+        OllamaPsSampler(cfg.ollama_base_url, cfg.model)
+        if cfg.sample_vram and cfg.ollama_base_url
+        else None
+    )
     verify_mode = cfg.mode == "verify"
     start = time.perf_counter()
     error: str | None = None
     final: FinalAnswer | None = None
     try:
-        if sampler is not None:
-            with sampler:
-                final = solve(
-                    task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify_mode
-                )
-        else:
+        with contextlib.ExitStack() as stack:
+            for s in (sampler, ps_sampler):
+                if s is not None:
+                    stack.enter_context(s)
             final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify_mode)
     except Exception as exc:  # recorded as a failed task; the run goes on
         error = f"{type(exc).__name__}: {exc}"
@@ -432,6 +498,7 @@ def evaluate_task(
         "tokens_per_s": metrics.get("tokens_per_s", []),
         "cost_usd": cost_usd(cfg.prices, cfg.provider, cfg.model, tokens_in, tokens_out),
         "peak_vram_mib": sampler.peak_mib if sampler is not None else None,
+        **(ps_sampler.fields() if ps_sampler is not None else OllamaPsSampler.empty()),
         "run_dir": writer.dir.as_posix(),
         "finished_utc": datetime.now(UTC).isoformat(timespec="seconds"),
     }

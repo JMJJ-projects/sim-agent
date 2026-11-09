@@ -43,6 +43,16 @@ def _total(records: list[dict[str, Any]], key: str) -> int | None:
     return int(sum(v for v in values if v is not None))
 
 
+def _max_of(records: list[dict[str, Any]], key: str) -> Any:
+    values = [r[key] for r in records if r.get(key) is not None]
+    return max(values) if values else None
+
+
+def _min_of(records: list[dict[str, Any]], key: str) -> Any:
+    values = [r[key] for r in records if r.get(key) is not None]
+    return min(values) if values else None
+
+
 def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
     """Per-run metrics: success rates, repairs, failures, latency, throughput, tokens, cost."""
     n = len(records)
@@ -90,5 +100,8 @@ def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
             if costs and all(c is not None for c in costs)
             else None
         ),
-        "peak_vram_mib": max(vram) if vram else None,
+        "peak_vram_mib": max(vram) if vram else None,  # nvidia-smi total (includes the desktop)
+        "model_size_mib": _max_of(records, "model_size_mib"),  # Ollama /api/ps (R-QV-2)
+        "model_vram_mib": _max_of(records, "model_vram_mib"),
+        "gpu_fraction": _min_of(records, "gpu_fraction"),
     }

@@ -450,3 +450,35 @@ def test_records_carry_attempt_checks_in_every_mode(tmp_path: Path) -> None:
     assert summary["verifier"]["catches"] == 1
     assert summary["verifier"]["misses"] == 0
     assert summarise(read_records(verify_cfg.results_path))["verifier"]["false_alarms"] == 0
+
+
+def test_ollama_ps_sampler_keeps_peaks() -> None:
+    """Covers R-QV-2: the model's own footprint and the fraction on the GPU."""
+    readings = iter(
+        [
+            {"models": [{"name": "m:7b", "size": 4 * harness.MIB, "size_vram": 1 * harness.MIB}]},
+            {"models": [{"name": "m:7b", "size": 6 * harness.MIB, "size_vram": 3 * harness.MIB}]},
+            {"models": []},
+        ]
+    )
+    sampler = harness.OllamaPsSampler("http://h", "m:7b", fetch=lambda url: next(readings))
+    for _ in range(3):
+        sampler.sample()
+    assert sampler.fields() == {"model_size_mib": 6, "model_vram_mib": 3, "gpu_fraction": 0.5}
+    assert harness.OllamaPsSampler.empty() == {
+        "model_size_mib": None,
+        "model_vram_mib": None,
+        "gpu_fraction": None,
+    }
+    with harness.OllamaPsSampler("http://h", "m", 0.01, fetch=lambda url: {"models": []}) as s:
+        pass
+    assert s.fields()["model_vram_mib"] is None
+
+
+def test_summary_reports_model_memory() -> None:
+    recs = [
+        _rec(model_size_mib=1900, model_vram_mib=1900, gpu_fraction=1.0),
+        _rec(task_id="b", model_size_mib=2000, model_vram_mib=1500, gpu_fraction=0.75),
+    ]
+    s = summarise(recs)
+    assert (s["model_size_mib"], s["model_vram_mib"], s["gpu_fraction"]) == (2000, 1900, 0.75)

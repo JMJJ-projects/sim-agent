@@ -62,22 +62,34 @@ this section and are not redone.
     `scripts/verify_offline.py` (`4d1901e`).
   - 670 tests pass with Docker required.
 
-### CHECKPOINT B (now)
+- **CHECKPOINT B** (user, 2026-11-09): go; CLI default switched to `--mode verify`
+  (`6e6dbf1`); v1 replay estimate requested and done: all 188 answered v1 scripts replayed with
+  traces, 19/42 wrong answers caught, 4/146 false alarms, all four from the 1.5B model pasting the
+  API example sweep into correct scripts; no check changed (`6f7affc`, `bce5b88`, NOTES.md).
+- **Phase 5 (R-TAX-1..4, R-REF-1..3):** taxonomy (`795b4ea`), report section + stacked chart
+  with v1 as history (`b2b7f7c`), seeded spot-check sample `docs/taxonomy_sample.md`
+  (`81456fe`), prompt v3 refusal-aware repair + R-REF-2 hint (`dddd711`).
+- **Phase 6.0:** per-model VRAM from Ollama `/api/ps` (`e22ffcc`); block 6.3 added to the plan
+  with checked tags (`0e3c96c`). 713 tests pass with Docker required.
 
-- Offline verifier over the committed v1 results (dev only, **no traces**, so only V-RANGE and
-  V-UNKNOWN can run): 3 of 43 wrong final answers would have been caught (all V-UNKNOWN), 0 false
-  alarms on 145 correct answers. Wrong answers by category: ambiguous 13, multi-step 10,
-  sweep 7, compare 6, search 4, adversarial 3. The trace checks cannot be estimated from v1 data.
-- Waiting for the user's go (or changes), and for them to push and confirm CI is green.
+### CHECKPOINT C (now): nothing real has been run except the timing probe
+
+- Facts (rate limits, tags, probe, disk): `docs/NOTES.md`, "CHECKPOINT C facts".
+- ETAs (from the full 36-task v1 runs; verify assumed ~1.3x repair): block 6.1 about 3-5 h;
+  block 6.2 at least 4.5 h of wall time (30 s delay) but about 6 days of Groq daily-token budget
+  if 200K TPD applies; block 6.3 unknown until the models are pulled (8 GB download, 12 GB free).
+- Waiting for the user's decisions (see the checkpoint message) and a push + green CI.
 
 ### Next
 
-- Phase 5: failure taxonomy (R-TAX-1..4), refusal-aware repair (R-REF-1..3).
+- Phase 6 runs, in the order the user approves; commit results per model as each finishes.
 
 ### Open questions
 
-- Optional: replay the 43 v1 wrong final scripts (all still in local `runs/` artifacts) through
-  the sandbox (policy first) to get traces and a trace-based catch estimate? Not in the plan.
+- Groq daily token budget: spread block 6.2 over ~6 days, or reduce it?
+- Disk space for the 6.3 models; download go-ahead.
+- A like-for-like prompt v2 vs v3 comparison for R-REF-1?
+- The API-example false alarms: keep the checks as they are (current default)?
 
 ---
 

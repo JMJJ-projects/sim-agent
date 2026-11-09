@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from simagent.evaluation.checkers import CheckInput, run_checker
-from simagent.evaluation.expected import build_expected, load_expected, sha256
+from simagent.evaluation.expected import build_expected, changed_results, load_expected, sha256
 from simagent.evaluation.tasks import TASK_SETS, Task, load_task_set
 from simagent.runners import DockerRunner
 from simagent.runners.base import RunResult
@@ -76,3 +76,26 @@ def test_only_docker_runner_allowed(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Docker sandbox"):
         build_expected([], tmp_path, LocalRunner(enabled=True))
+
+
+def test_changed_results_detects_any_value_change() -> None:
+    """Regeneration never changes an expected value silently (R-HO-4)."""
+    old = {"tasks": {"a": {"result": {"answer": 1}, "reference_sha256": "x", "trace": None}}}
+    same = {"tasks": {"a": {"result": {"answer": 1}, "reference_sha256": "x", "trace": {}}}}
+    assert changed_results(old, same) == []  # adding a trace is not a change of value
+    value = {"tasks": {"a": {"result": {"answer": 2}, "reference_sha256": "x"}}}
+    script = {"tasks": {"a": {"result": {"answer": 1}, "reference_sha256": "y"}}}
+    extra = {"tasks": {**old["tasks"], "b": old["tasks"]["a"]}}
+    assert changed_results(old, value) == ["a"]
+    assert changed_results(old, script) == ["a"]
+    assert changed_results(old, extra) == ["b"]
+
+
+def test_build_expected_keeps_the_trace(tmp_path: Path) -> None:
+    class TracingRunner(FakeRunner):
+        def run(self, code: str, timeout_s: float = 60.0) -> RunResult:
+            res = super().run(code, timeout_s)
+            return RunResult(0, "", "", res.result_json, False, 0.1, trace={"calls": [1]})
+
+    data = build_expected([_task(tmp_path, "r.py")], tmp_path, TracingRunner())
+    assert data["tasks"]["t"]["trace"] == {"calls": [1]}

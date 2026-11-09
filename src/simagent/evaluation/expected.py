@@ -39,6 +39,7 @@ def build_expected(tasks: list[Task], root: Path, runner: Runner) -> dict[str, A
             "reference": task.reference,
             "reference_sha256": sha256(path),
             "result": res.result_json,
+            "trace": res.trace,
             "duration_s": round(res.duration_s, 3),
         }
     return {
@@ -47,6 +48,20 @@ def build_expected(tasks: list[Task], root: Path, runner: Runner) -> dict[str, A
         "runner": "docker",
         "tasks": entries,
     }
+
+
+def changed_results(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+    """Task ids whose reference result (or reference script hash) differs between two files.
+
+    Regenerating must never change an expected value silently (R-HO-4 for the held-out set).
+    """
+    old_tasks, new_tasks = old.get("tasks", {}), new.get("tasks", {})
+    changed = sorted(set(old_tasks) ^ set(new_tasks))
+    for tid in sorted(set(old_tasks) & set(new_tasks)):
+        a, b = old_tasks[tid], new_tasks[tid]
+        if a["result"] != b["result"] or a["reference_sha256"] != b["reference_sha256"]:
+            changed.append(tid)
+    return changed
 
 
 def load_expected(path: Path) -> dict[str, Any]:

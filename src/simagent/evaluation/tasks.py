@@ -1,6 +1,7 @@
-"""Evaluation task set: loading and validation (R-EV-1, R-EV-2).
+"""Evaluation task sets: loading and validation (R-EV-1, R-EV-2, R-HO-1).
 
-``data/tasks.jsonl`` has one task per line::
+Two task sets exist (see ``TASK_SETS``): ``dev`` (``data/tasks.jsonl``) and ``heldout``
+(``data/tasks_heldout.jsonl``, frozen at tag ``heldout-frozen``). Each file has one task per line::
 
     {"id": "...", "category": "...", "prompt": "...", "checker": {...}, "reference": "..."}
 
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,40 @@ CATEGORIES = (
 )
 MIN_PER_CATEGORY = 4
 MIN_TASKS, MAX_TASKS = 30, 40
+HELDOUT_COUNTS: Mapping[str, int] = {
+    "single_run": 3,
+    "sweep": 4,
+    "compare": 3,
+    "search": 4,
+    "multi_step": 4,
+    "ambiguous_or_misleading": 4,
+    "adversarial": 2,
+}
+
+
+@dataclass(frozen=True)
+class TaskSet:
+    """A named task set: its task file, expected-values file and set-level rules."""
+
+    name: str
+    tasks_file: str
+    expected_file: str
+    exact_counts: Mapping[str, int] | None = None
+    """Exact tasks per category (held-out, R-HO-1); ``None`` applies the dev rules (R-EV-1/2)."""
+
+    def tasks_path(self, root: Path) -> Path:
+        return root / self.tasks_file
+
+    def expected_path(self, root: Path) -> Path:
+        return root / self.expected_file
+
+
+TASK_SETS: Mapping[str, TaskSet] = {
+    "dev": TaskSet("dev", "data/tasks.jsonl", "data/expected.json"),
+    "heldout": TaskSet(
+        "heldout", "data/tasks_heldout.jsonl", "data/expected_heldout.json", HELDOUT_COUNTS
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -70,8 +106,18 @@ def parse_task(raw: dict[str, Any], root: Path) -> Task:
     return task
 
 
-def load_tasks(path: Path, root: Path | None = None, *, check_set: bool = True) -> list[Task]:
-    """Load and validate tasks. ``check_set`` also enforces the set-level rules of R-EV-1/2."""
+def load_tasks(
+    path: Path,
+    root: Path | None = None,
+    *,
+    check_set: bool = True,
+    exact_counts: Mapping[str, int] | None = None,
+) -> list[Task]:
+    """Load and validate tasks.
+
+    ``check_set`` also enforces the set-level rules: exact per-category counts when
+    ``exact_counts`` is given (held-out, R-HO-1), else the dev rules of R-EV-1/2.
+    """
     root = root or path.parent.parent
     tasks: list[Task] = []
     for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -86,7 +132,11 @@ def load_tasks(path: Path, root: Path | None = None, *, check_set: bool = True) 
     dupes = [i for i, n in ids.items() if n > 1]
     if dupes:
         raise ValueError(f"duplicate task ids: {dupes}")
-    if check_set:
+    if check_set and exact_counts is not None:
+        counts = Counter(t.category for t in tasks)
+        if dict(counts) != {c: n for c, n in exact_counts.items() if n}:
+            raise ValueError(f"category counts {dict(counts)} != required {dict(exact_counts)}")
+    elif check_set:
         if not MIN_TASKS <= len(tasks) <= MAX_TASKS:
             raise ValueError(f"need {MIN_TASKS}-{MAX_TASKS} tasks, found {len(tasks)}")
         counts = Counter(t.category for t in tasks)
@@ -94,3 +144,11 @@ def load_tasks(path: Path, root: Path | None = None, *, check_set: bool = True) 
         if short:
             raise ValueError(f"categories with fewer than {MIN_PER_CATEGORY} tasks: {short}")
     return tasks
+
+
+def load_task_set(name: str, root: Path) -> list[Task]:
+    """Load a named task set from ``TASK_SETS`` and enforce its set-level rules."""
+    if name not in TASK_SETS:
+        raise ValueError(f"unknown task set {name!r}; choose from {sorted(TASK_SETS)}")
+    ts = TASK_SETS[name]
+    return load_tasks(ts.tasks_path(root), root, exact_counts=ts.exact_counts)

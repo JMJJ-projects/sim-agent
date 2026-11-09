@@ -7,7 +7,14 @@ from typing import Any
 import pytest
 
 from simagent.codeblock import extract
-from simagent.evaluation.tasks import CATEGORIES, MIN_PER_CATEGORY, load_tasks, parse_task
+from simagent.evaluation.tasks import (
+    CATEGORIES,
+    MIN_PER_CATEGORY,
+    TASK_SETS,
+    load_task_set,
+    load_tasks,
+    parse_task,
+)
 from simagent.policy import check
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,3 +101,24 @@ def test_category_minimum_enforced(tmp_path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="fewer than"):
         load_tasks(path, tmp_path)
+
+
+def test_task_set_registry() -> None:
+    """Covers R-HO-1: both task sets are registered with their files."""
+    assert set(TASK_SETS) == {"dev", "heldout"}
+    assert TASK_SETS["dev"].tasks_path(ROOT) == TASKS
+    assert TASK_SETS["heldout"].expected_path(ROOT) == ROOT / "data" / "expected_heldout.json"
+    assert len(load_task_set("dev", ROOT)) == len(load_tasks(TASKS))
+    with pytest.raises(ValueError, match="unknown task set"):
+        load_task_set("nope", ROOT)
+
+
+def test_exact_category_counts_enforced(tmp_path: Path) -> None:
+    """Covers R-HO-1: a set with exact counts rejects any other mix."""
+    (tmp_path / "ref.md").write_text("REFUSED: x", encoding="utf-8")
+    path = tmp_path / "data" / "tasks.jsonl"
+    path.parent.mkdir()
+    path.write_text(json.dumps(_raw()) + "\n", encoding="utf-8")
+    assert len(load_tasks(path, tmp_path, exact_counts={"single_run": 1, "sweep": 0})) == 1
+    with pytest.raises(ValueError, match="category counts"):
+        load_tasks(path, tmp_path, exact_counts={"single_run": 2})

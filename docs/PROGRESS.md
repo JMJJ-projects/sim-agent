@@ -47,15 +47,37 @@ this section and are not redone.
   - Expected values regenerated with traces; every value and reference hash unchanged
     (`edf1801`, `2a7fc0c`). 527 tests pass with Docker required.
 
+- **Phase 4 (R-REQ-1..3, R-VER-1..7):**
+  - `request_facts.py`: deterministic facts (units, lists, ranges + steps, counts, seeds,
+    quantity, percent, derived, materials, unknown materials); 61 phrasings not from the task
+    sets, checked by a test (`b4434c0`, `b90a4ba`).
+  - `verify.py`: V-RANGE, V-ENERGY, V-LENGTH, V-COUNT, V-MATERIAL, V-UNKNOWN, V-SWEEP,
+    V-MONOTONE (warn), V-TRACE; trace checks skipped without a trace (`377bdc6`).
+  - R-VER-3: all 32 runnable dev references pass with zero `fail` findings in Docker; no check
+    narrowed after running references; design-time narrowing in NOTES.md (`2f51e57`).
+  - Graph: `facts` and `verify` nodes, shared budget, `solved_unverified` (`93a14ab`); CLI
+    `--mode` and the offline verify demo (crash -> wrong unit caught -> fixed) (`3351e10`); MCP
+    `solve(verify=True)` returns findings (`132ed85`); harness verify mode (`e197c1d`);
+    attempt checks + catches/false alarms/misses in every mode (`af94b17`);
+    `scripts/verify_offline.py` (`4d1901e`).
+  - 670 tests pass with Docker required.
+
+### CHECKPOINT B (now)
+
+- Offline verifier over the committed v1 results (dev only, **no traces**, so only V-RANGE and
+  V-UNKNOWN can run): 3 of 43 wrong final answers would have been caught (all V-UNKNOWN), 0 false
+  alarms on 145 correct answers. Wrong answers by category: ambiguous 13, multi-step 10,
+  sweep 7, compare 6, search 4, adversarial 3. The trace checks cannot be estimated from v1 data.
+- Waiting for the user's go (or changes), and for them to push and confirm CI is green.
+
 ### Next
 
-- Phase 4: request facts (R-REQ), verifier checks (R-VER-2), references pass the verifier
-  (R-VER-3), `facts`/`verify` graph nodes with the shared budget, CLI/MCP verify mode, verifier
-  quality metrics; then CHECKPOINT B.
+- Phase 5: failure taxonomy (R-TAX-1..4), refusal-aware repair (R-REF-1..3).
 
 ### Open questions
 
-- None.
+- Optional: replay the 43 v1 wrong final scripts (all still in local `runs/` artifacts) through
+  the sandbox (policy first) to get traces and a trace-based catch estimate? Not in the plan.
 
 ---
 

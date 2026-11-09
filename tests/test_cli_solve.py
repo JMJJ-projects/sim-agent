@@ -27,7 +27,8 @@ def _env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 def test_fake_demo_solves_with_repair(tmp_path: Path) -> None:
     """Covers R-CLI-1: offline demo with a full repair cycle."""
-    res = cli.invoke(app, ["solve", REQ, "--provider", "fake", "--unsafe-local", "--json"])
+    args = ["solve", REQ, "--provider", "fake", "--unsafe-local", "--mode", "repair", "--json"]
+    res = cli.invoke(app, args)
     assert res.exit_code == 0, res.output
     final = json.loads(res.stdout)
     assert final["status"] == "solved"
@@ -187,3 +188,12 @@ def test_unverified_answer_is_shown_with_its_findings() -> None:
     assert "V-LENGTH" in text
     assert "5 cm was never simulated" in text
     assert "warn odd curve" in text
+
+
+def test_default_mode_is_verify() -> None:
+    """Covers R-VER-6: the CLI defaults to verify, like the MCP solve tool."""
+    res = cli.invoke(app, ["solve", REQ, "--provider", "fake", "--unsafe-local", "--json"])
+    assert res.exit_code == 0, res.output
+    final = json.loads(res.stdout)
+    assert final["attempts"] == 3  # the verify demo: crash, wrong unit caught, fix
+    assert "[V-LENGTH]" in final["errors"][1]

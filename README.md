@@ -25,7 +25,8 @@ pip install -e ".[dev,ollama]"
 docker build -f sandbox/Dockerfile -t simagent-sandbox:2 .   # or: make sandbox-image
 simagent doctor                                               # Docker, image, Ollama, GPU, keys
 
-# 1. Offline: a scripted model replays a buggy script, then the fix (shows a full repair cycle)
+# 1. Offline: a scripted model replays a crash, then a script that runs but uses the wrong
+#    unit (caught by verification), then the fix
 simagent solve "transmission of 1 MeV photons through 5 cm of water" --provider fake
 
 # 2. A small local model
@@ -38,7 +39,9 @@ simagent mcp
 ```
 
 Other commands: `simagent run-script FILE` (policy + sandbox, no model), `--json` for machine
-output, `--max-attempts 1` for single-shot. Exit codes: 0 solved, 3 not solved or refused, 2
+output, `--mode baseline|repair|verify` (default `verify`: the repair loop plus checking the
+answer against the request and the simulation trace), `--max-attempts 1` for single-shot.
+Exit codes: 0 solved, 3 not solved, refused or answered but unverified, 2
 invalid input or missing sandbox (one line, no stack trace), 1 unexpected error.
 MCP setup: [docs/mcp.md](docs/mcp.md); a recorded client session: [docs/mcp_demo.md](docs/mcp_demo.md).
 

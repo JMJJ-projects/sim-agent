@@ -239,7 +239,7 @@ def solve(
             help="baseline (one attempt) | repair (fix failed runs) | verify (also check the "
             "answer against the request and the simulation trace).",
         ),
-    ] = "repair",
+    ] = "verify",  # same default as the MCP solve tool (R-VER-6)
     unsafe_local: Annotated[
         bool, typer.Option("--unsafe-local", help="Run without isolation (development only).")
     ] = False,

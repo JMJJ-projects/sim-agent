@@ -39,9 +39,12 @@ from simagent.evaluation.tasks import Task
 from simagent.graph import solve
 from simagent.llm import ScriptedChatModel
 from simagent.nodes import AgentDeps, AttemptHook
+from simagent.request_facts import RequestFacts
+from simagent.request_facts import extract as extract_facts
 from simagent.runners.base import Runner
 from simagent.runners.local import LocalRunner
 from simagent.state import AgentState, AttemptRecord, FinalAnswer
+from simagent.verify import failures, verify
 
 MODES = ("baseline", "repair", "verify")
 ANSWERED = ("solved", "solved_unverified")
@@ -298,6 +301,33 @@ def done_task_ids(path: Path) -> set[str]:
     return ids
 
 
+def attempt_checks(
+    task: Task, facts: RequestFacts, attempts: list[AttemptRecord], ref: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Checker verdict and verifier verdict for every attempt that produced a result (R-VER-7).
+
+    The verifier is re-run here as a pure function of the recorded result and trace, so the same
+    numbers exist for every mode (in verify mode they equal what the agent saw).
+    """
+    out: list[dict[str, Any]] = []
+    for a in attempts:
+        run = a["run"] or {}
+        result = run.get("result")
+        if result is None or a["outcome"] not in ("ok", "verify_failed"):
+            continue
+        checked = run_checker(task.checker, CheckInput("solved", result, True), ref)
+        fails = failures(verify(facts, result, run.get("trace")))
+        out.append(
+            {
+                "attempt": a["number"],
+                "checker_passed": checked.passed,
+                "verifier_failed": bool(fails),
+                "failed_checks": sorted({f.check for f in fails}),
+            }
+        )
+    return out
+
+
 def evaluate_task(
     task: Task,
     cfg: EvalConfig,
@@ -323,16 +353,18 @@ def evaluate_task(
         hooks=[collector, writer],
     )
     sampler = VramSampler() if cfg.sample_vram else None
-    verify = cfg.mode == "verify"
+    verify_mode = cfg.mode == "verify"
     start = time.perf_counter()
     error: str | None = None
     final: FinalAnswer | None = None
     try:
         if sampler is not None:
             with sampler:
-                final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify)
+                final = solve(
+                    task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify_mode
+                )
         else:
-            final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify)
+            final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify_mode)
     except Exception as exc:  # recorded as a failed task; the run goes on
         error = f"{type(exc).__name__}: {exc}"
     latency = time.perf_counter() - start
@@ -355,6 +387,14 @@ def evaluate_task(
     if needs_expected(task.checker) and ref is None:
         raise ConfigError(f"no expected result for {task.id}; run scripts/make_expected.py")
     outcome = run_checker(task.checker, CheckInput(status, result, executed), ref)
+    facts = extract_facts(task.prompt)
+    checks = attempt_checks(task, facts, attempts, ref)
+    last_run = (attempts[-1]["run"] or {}) if attempts and result is not None else {}
+    final_findings = (
+        [f.to_dict() for f in verify(facts, last_run.get("result"), last_run.get("trace"))]
+        if result is not None
+        else []
+    )
     metrics = final["metrics"] if final is not None else {}
     tokens_in = metrics.get("input_tokens")
     tokens_out = metrics.get("output_tokens")
@@ -381,6 +421,8 @@ def evaluate_task(
         "policy_violations": sum(a["outcome"] == "policy_violation" for a in attempts),
         "timeouts": sum(bool(a["run"] and a["run"]["timed_out"]) for a in attempts),
         "answer": final["answer"] if final is not None else None,
+        "attempt_checks": checks,
+        "final_findings": final_findings,
         "latency_s": round(latency, 3),
         "model_s": round(sum(a["model_s"] for a in attempts), 3),
         "run_s": round(sum(a["run_s"] for a in attempts), 3),

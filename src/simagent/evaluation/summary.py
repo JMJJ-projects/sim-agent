@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+from simagent.evaluation.verifier_quality import verifier_quality
+
 
 def read_records(path: Path) -> list[dict[str, Any]]:
     """Task records of a results JSONL file (header skipped; last record wins per task id)."""
@@ -73,6 +75,8 @@ def summarise(records: list[dict[str, Any]]) -> dict[str, Any]:
         "status_solved_but_wrong": sum(
             1 for r in records if r["status"] == "solved" and not r["passed"]
         ),
+        "status_solved_unverified": sum(1 for r in records if r["status"] == "solved_unverified"),
+        "verifier": verifier_quality(records),
         "policy_violations": sum(r.get("policy_violations", 0) for r in records),
         "timeouts": sum(r.get("timeouts", 0) for r in records),
         "latency_median_s": _median([r["latency_s"] for r in records]),

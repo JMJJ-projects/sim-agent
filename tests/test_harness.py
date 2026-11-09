@@ -416,3 +416,37 @@ def test_unverified_answer_is_still_scored(tmp_path: Path) -> None:
     assert record["status"] == "solved_unverified"
     assert record["passed"] is False
     assert "vs expected" in record["check_reason"]  # the checker judged the answer
+
+
+def test_records_carry_attempt_checks_in_every_mode(tmp_path: Path) -> None:
+    """Covers R-VER-7: checker and verifier verdicts per attempt, also outside verify mode."""
+    task = _pick("single_01")[0]
+    right = harness.fake_reply(task, ROOT)
+    wrong = right.replace('"aluminium", 4.0', '"aluminium", 0.04')
+    verify_cfg = _cfg(tmp_path, mode="verify", seed=0)
+    (verified,) = run_eval(
+        verify_cfg,
+        [task],
+        EXPECTED,
+        Delegating(),
+        lambda t: ScriptedChatModel(replies=[wrong, right]),
+    )
+    assert verified["passed"]
+    assert [(c["checker_passed"], c["verifier_failed"]) for c in verified["attempt_checks"]] == [
+        (False, True),
+        (True, False),
+    ]
+    assert "V-LENGTH" in verified["attempt_checks"][0]["failed_checks"]
+    assert verified["final_findings"] == []
+    repair_cfg = _cfg(tmp_path, mode="repair", seed=0)
+    (repaired,) = run_eval(
+        repair_cfg, [task], EXPECTED, Delegating(), lambda t: ScriptedChatModel(replies=[wrong])
+    )
+    assert repaired["status"] == "solved"
+    assert not repaired["passed"]  # solved but wrong: what v1 could not see
+    assert repaired["attempt_checks"][0]["verifier_failed"]  # verify would have caught it
+    assert any(f["check"] == "V-LENGTH" for f in repaired["final_findings"])
+    summary = summarise(read_records(repair_cfg.results_path))
+    assert summary["verifier"]["catches"] == 1
+    assert summary["verifier"]["misses"] == 0
+    assert summarise(read_records(verify_cfg.results_path))["verifier"]["false_alarms"] == 0

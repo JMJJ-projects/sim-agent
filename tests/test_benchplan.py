@@ -90,10 +90,13 @@ def test_plan_rejects_duplicate_files() -> None:
 def test_committed_v2_plan_is_valid() -> None:
     """The committed plan expands: dev + held-out x seeds for each run (PLAN-v2 Phase 6)."""
     units = expand(benchplan.load_plan(ROOT / "data" / "bench_plan_v2.json"), 2)
-    local = [u for u in units if u.provider == "ollama"]
+    local = [u for u in units if u.provider == "ollama" and u.round == "6.1"]
     hosted = [u for u in units if u.provider == "groq"]
     assert len(local) == 2 * 3 * 2 * 5  # 2 models x 3 modes x 2 task sets x 5 seeds
     assert len(hosted) == 3 * 2 * 3  # 3 modes x 2 task sets x 3 seeds
+    quant = [u for u in units if u.round == "6.3"]
+    assert len(quant) == 2 * 2 * 3  # 2 models x 2 task sets x 3 seeds, verify only
+    assert {u.mode for u in quant} == {"verify"}
     assert {u.mode for u in units} == {"baseline", "repair", "verify"}
 
 

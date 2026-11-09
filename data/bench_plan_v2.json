@@ -1,5 +1,5 @@
 {
-  "description": "Planned v2 benchmark runs (PLAN-v2 Phase 6). scripts/bench.py expands each run into one results file per (task set, seed) and runs them in order with --resume. Block 6.3 (quantisation: 3B Q8_0 and a 7B coder Q4_K_M) is added at Phase 6 once the exact Ollama tags are checked (R-QV-1); the Groq delay is re-checked against the official free-tier limits at CHECKPOINT C.",
+  "description": "Planned v2 benchmark runs (PLAN-v2 Phase 6). scripts/bench.py expands each run into one results file per (task set, seed) and runs them in order with --resume. Block 6.3 (quantisation study, R-QV-1) uses the exact Ollama tags checked on 2026-11-09. The Groq delay (30 s) keeps the request and per-minute token rates well under the published limits; the daily token limit is the binding one (see docs/NOTES.md).",
   "runs": [
     {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:3b", "mode": "baseline", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
     {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:3b", "mode": "repair", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
@@ -9,6 +9,8 @@
     {"round": "6.1", "provider": "ollama", "model": "qwen2.5-coder:1.5b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2, 3, 4], "vram": true},
     {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "baseline", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"},
     {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "repair", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"},
-    {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"}
+    {"round": "6.2", "provider": "groq", "model": "openai/gpt-oss-120b", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2], "delay_s": 30, "note": "Groq free tier; reasoning model: output tokens include hidden reasoning, so TTFT and tokens/s are not comparable with local rows"},
+    {"round": "6.3", "provider": "ollama", "model": "qwen2.5-coder:3b-instruct-q8_0", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2], "vram": true, "note": "quantisation study (R-QV-1): same model as qwen2.5-coder:3b at Q8_0; tag checked on ollama.com/library/qwen2.5-coder/tags on 2026-11-09 (3.3 GB)"},
+    {"round": "6.3", "provider": "ollama", "model": "qwen2.5-coder:7b-instruct-q4_K_M", "mode": "verify", "task_set": "all", "seeds": [0, 1, 2], "vram": true, "note": "quantisation study (R-QV-1): 7B coder at Q4_K_M, partial GPU offload expected on 4 GB; tag checked on 2026-11-09 (4.7 GB)"}
   ]
 }

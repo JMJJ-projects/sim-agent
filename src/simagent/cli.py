@@ -1,6 +1,7 @@
 """Command-line interface (``simagent``).
 
-Exit codes (R-CLI-4): 0 solved / ok, 3 not solved / refused / run failed, 2 invalid input or
+Exit codes (R-CLI-4): 0 solved / ok, 3 not solved / refused / run failed / answered but not
+verified (``solved_unverified``), 2 invalid input or
 configuration (including a missing sandbox), 1 unexpected error. Expected failures print one
 line, without a stack trace.
 """
@@ -174,8 +175,8 @@ def _error_summary(text: str | None, width: int = 110) -> str:
     lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
     has_traceback = any(ln.startswith("stderr") for ln in lines)
     line = lines[-1] if has_traceback else lines[0]
-    if line.startswith("- "):  # policy feedback lists violations as bullets
-        line = lines[1] if len(lines) > 1 else line
+    if line.endswith(":") and len(lines) > 1:  # policy / verification feedback: first bullet
+        line = lines[1].removeprefix("- ")
     return line if len(line) <= width else line[: width - 3] + "..."
 
 
@@ -183,14 +184,19 @@ def print_final(final: FinalAnswer, run_dir: Path | None, console: Console | Non
     """Rich summary of a final answer (also used by scripts/render_demo.py)."""
     con = console or out
     status = final["status"]
-    style = {"solved": "green", "refused": "yellow"}.get(status, "red")
+    style = {"solved": "green", "refused": "yellow", "solved_unverified": "yellow"}.get(
+        status, "red"
+    )
     grid = Table.grid(padding=(0, 2))
     grid.add_row("status", f"[bold {style}]{status}[/]")
     grid.add_row("attempts", str(final["attempts"]))
-    if status == "solved":
+    if status in ("solved", "solved_unverified"):
         grid.add_row("answer", json.dumps(final["answer"]))
         if final["data"]:
             grid.add_row("data", json.dumps(final["data"], default=str)[:600])
+    for finding in final.get("findings") or []:
+        mark = "[red]fail[/]" if finding["severity"] == "fail" else "[yellow]warn[/]"
+        grid.add_row(finding["check"], f"{mark} {finding['message']}")
     if final["explanation"]:
         grid.add_row("explanation", final["explanation"])
     if run_dir is not None:
@@ -226,6 +232,14 @@ def solve(
     max_attempts: Annotated[
         int, typer.Option("--max-attempts", help="Attempts including the first (1 = baseline).")
     ] = 4,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="baseline (one attempt) | repair (fix failed runs) | verify (also check the "
+            "answer against the request and the simulation trace).",
+        ),
+    ] = "repair",
     unsafe_local: Annotated[
         bool, typer.Option("--unsafe-local", help="Run without isolation (development only).")
     ] = False,
@@ -240,19 +254,26 @@ def solve(
         raise ConfigError(str(exc)) from None
     settings = Settings.from_env(provider=provider, model=model)
     if settings.provider == "fake" and not as_json:
+        demo = (
+            "a crash, then a script that runs but uses the wrong unit, then the fix"
+            if mode == "verify"
+            else "a buggy script, then the fix"
+        )
         err.print(
-            "[dim]note: --provider fake replays a built-in scripted demo (a buggy script, then the "
-            "fix); the request text does not change the code.[/]",
+            f"[dim]note: --provider fake replays a built-in scripted demo ({demo}); the request "
+            "text does not change the code.[/]",
             highlight=False,
         )
     if unsafe_local:
         err.print("[yellow]warning: --unsafe-local runs generated code without isolation[/]")
-    final, run_dir = run_agent(text, settings, max_attempts=max_attempts, unsafe_local=unsafe_local)
+    final, run_dir = run_agent(
+        text, settings, max_attempts=max_attempts, mode=mode, unsafe_local=unsafe_local
+    )
     if as_json:
         typer.echo(json.dumps(_final_json(final, run_dir), indent=2, default=str))
     else:
         print_final(final, run_dir)
-    raise typer.Exit(EXIT_OK if final["status"] == "solved" else EXIT_NOT_SOLVED)
+    raise typer.Exit(EXIT_OK if final["status"] == "solved" else EXIT_NOT_SOLVED)  # R-CLI-4
 
 
 @app.command()

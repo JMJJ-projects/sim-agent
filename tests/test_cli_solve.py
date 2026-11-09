@@ -115,3 +115,75 @@ def test_render_demo_from_recorded_run(tmp_path: Path) -> None:
     assert svg.startswith("<svg")
     assert "H2O" in svg
     assert mod.main(["--search", str(tmp_path / "nothing"), "--out", str(out)]) == 2
+
+
+def test_fake_verify_demo_catches_the_wrong_unit() -> None:
+    """Covers R-VER-6 and PLAN-v2 4.4: the offline demo shows a wrong answer caught."""
+    args = ["solve", REQ, "--provider", "fake", "--unsafe-local", "--mode", "verify", "--json"]
+    res = cli.invoke(app, args)
+    assert res.exit_code == 0, res.output
+    final = json.loads(res.stdout)
+    assert final["status"] == "solved"
+    assert final["attempts"] == 3
+    assert "unknown material 'H2O'" in final["errors"][0]
+    assert "[V-LENGTH]" in final["errors"][1]
+    assert final["findings"] == []
+
+
+def test_verify_output_shows_the_finding() -> None:
+    res = cli.invoke(
+        app, ["solve", REQ, "--provider", "fake", "--unsafe-local", "--mode", "verify"]
+    )
+    assert res.exit_code == 0, res.output
+    assert "[V-LENGTH]" in res.stdout
+    assert "wrong unit" in res.stderr
+
+
+def test_baseline_mode_uses_one_attempt() -> None:
+    args = ["solve", REQ, "--provider", "fake", "--unsafe-local", "--mode", "baseline", "--json"]
+    res = cli.invoke(app, args)
+    assert res.exit_code == 3
+    assert json.loads(res.stdout)["attempts"] == 1
+
+
+def test_unknown_mode_is_a_config_error() -> None:
+    res = cli.invoke(app, ["solve", REQ, "--provider", "fake", "--unsafe-local", "--mode", "x"])
+    assert res.exit_code == 2
+
+
+def test_unverified_answer_is_shown_with_its_findings() -> None:
+    """Covers R-VER-5 and R-CLI-4: answered but unverified exits 3 and lists the findings."""
+    from rich.console import Console
+
+    from simagent.cli import print_final
+
+    final: dict[str, object] = {
+        "status": "solved_unverified",
+        "request": REQ,
+        "answer": 0.97,
+        "data": {},
+        "explanation": "",
+        "final_script": None,
+        "attempts": 4,
+        "errors": [None],
+        "refusal": None,
+        "files": {},
+        "metrics": {
+            "model_s": 0.0,
+            "run_s": 0.0,
+            "input_tokens": None,
+            "output_tokens": None,
+        },
+        "findings": [
+            {"check": "V-LENGTH", "severity": "fail", "message": "5 cm was never simulated"},
+            {"check": "V-MONOTONE", "severity": "warn", "message": "odd curve"},
+        ],
+    }
+    console = Console(record=True, width=120)
+    print_final(final, None, console)  # type: ignore[arg-type]
+    text = console.export_text()
+    assert "solved_unverified" in text
+    assert "0.97" in text
+    assert "V-LENGTH" in text
+    assert "5 cm was never simulated" in text
+    assert "warn odd curve" in text

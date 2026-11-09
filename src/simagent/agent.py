@@ -12,6 +12,7 @@ from pathlib import Path
 
 from simagent.artifacts import ArtifactWriter
 from simagent.config import ConfigError, Settings
+from simagent.demo import VERIFY_DEMO_REPLIES
 from simagent.doctor import ollama_models
 from simagent.graph import solve
 from simagent.llm import make_chat_model, resolve_model
@@ -77,24 +78,36 @@ def build_deps(
     )
 
 
+MODES = ("baseline", "repair", "verify")  # R-VER-6
+
+
 def run_agent(
     request: str,
     settings: Settings,
     *,
     max_attempts: int,
+    mode: str = "repair",
     unsafe_local: bool = False,
     save_artifacts: bool = True,
     runs_dir: Path | None = None,
 ) -> tuple[FinalAnswer, Path | None]:
-    """Solve ``request``; returns the final answer and the artifact directory (if saved)."""
+    """Solve ``request``; returns the final answer and the artifact directory (if saved).
+
+    ``mode`` (R-VER-6): ``baseline`` = one attempt, ``repair`` = the repair loop, ``verify`` =
+    the repair loop plus verification, sharing the same ``max_attempts`` budget.
+    """
+    if mode not in MODES:
+        raise ConfigError(f"mode must be one of {', '.join(MODES)}, got {mode!r}")
     validate_max_attempts(max_attempts)
+    attempts = 1 if mode == "baseline" else max_attempts
     writer: ArtifactWriter | None = None
-    deps = build_deps(settings, unsafe_local=unsafe_local)
+    fake_replies = VERIFY_DEMO_REPLIES if mode == "verify" else None
+    deps = build_deps(settings, unsafe_local=unsafe_local, fake_replies=fake_replies)
     if save_artifacts:
         writer = ArtifactWriter(
             runs_dir or settings.runs_dir,
             {"provider": deps.provider, "model": deps.model_name, "runner": deps.runner.name},
         )
         deps.hooks.append(writer)
-    final = solve(request, deps, max_attempts=max_attempts)
+    final = solve(request, deps, max_attempts=attempts, verify=mode == "verify")
     return final, (writer.dir if writer else None)

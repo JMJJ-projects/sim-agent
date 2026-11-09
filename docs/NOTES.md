@@ -222,3 +222,15 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   numbers; without the version both runs would map to one file (the header check would refuse to
   mix them, but they could not coexist).
 - `--run-name` is now a prefix: `-<taskset>-s<seed>` is appended. `--limit` applies per task set.
+
+## Statistics (v2 Phase 2.3)
+
+- `src/simagent/evaluation/stats.py`, NumPy + `math` only. Bootstrap: 10 000 resamples over
+  tasks, RNG seed 20261109, percentile interval.
+- **McNemar reference values** come from Fagerland, Lydersen & Laake (2013), "The McNemar test
+  for binary matched-pairs data: mid-p and asymptotic are better than exact conditional", BMC
+  Med Res Methodol 13:91, Table 6 ("McNemar exact" row), read from the Europe PMC full text
+  (PMC3716987) on 2026-11-09: discordant 1/7 → p = 0.0703; table 59/6/16/80 → p = 0.0525.
+  The paper defines the two-sided exact conditional p-value as twice the one-sided tail (1.0
+  when the discordant counts are equal). Wikipedia quotes the second value as 0.053, which is the
+  paper's rounded in-text value, not a different result.

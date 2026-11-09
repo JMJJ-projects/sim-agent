@@ -4,7 +4,9 @@ Tools:
 
 * ``describe_simulator()``: the photonsim API reference, the result contract and the limits.
 * ``run_simulation_script(code)``: static policy + sandbox run of a client-written script.
-* ``solve(request, max_attempts=4)``: the full self-correcting agent.
+* ``solve(request, max_attempts=4, verify=True)``: the full self-correcting agent; by default
+  it also verifies the answer against the request and the simulation trace and returns the
+  findings (R-VER-6).
 
 The runner, timeout and resource limits come from the server's configuration. No tool takes
 them as arguments, and unknown arguments (e.g. ``timeout_s``) are dropped by the SDK before the
@@ -119,11 +121,15 @@ def build_server(
         return ex.to_dict(include_files=True)
 
     @server.tool()
-    async def solve(request: str, max_attempts: int = 4) -> dict[str, Any]:
+    async def solve(request: str, max_attempts: int = 4, verify: bool = True) -> dict[str, Any]:
         """Turn a plain-language request into a simulation, run it and repair it if it fails.
 
         max_attempts counts the first attempt (1 = no repair); the server caps it at 10.
-        Returns status, answer, data, explanation, final script, attempts and errors.
+        verify (default true) also checks a successful answer against the request and the
+        simulation's own trace (units, energies, thicknesses, materials, photon counts, sweeps)
+        and repairs on failed checks within the same attempt budget.
+        Returns status (solved, solved_unverified, failed, refused), answer, data, explanation,
+        final script, attempts, errors and the verification findings.
         """
         with expected_failures():
             text = prompts.validate_request(request)
@@ -137,7 +143,7 @@ def build_server(
                 {"provider": deps.provider, "model": deps.model_name, "via": "mcp"},
             )
             deps.hooks.append(writer)
-            final = solve_graph(text, deps, max_attempts=attempts)
+            final = solve_graph(text, deps, max_attempts=attempts, verify=verify)
             out: dict[str, Any] = dict(final)
             out["files"] = sorted(final["files"])
             out["run_dir"] = str(writer.dir)

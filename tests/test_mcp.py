@@ -85,7 +85,11 @@ def test_lists_three_tools_without_limit_arguments(settings: Settings, runner: R
     by_name = {t.name: t for t in tools.tools}
     assert set(by_name) == {"describe_simulator", "run_simulation_script", "solve"}
     assert set(by_name["run_simulation_script"].input_schema["properties"]) == {"code"}
-    assert set(by_name["solve"].input_schema["properties"]) == {"request", "max_attempts"}
+    assert set(by_name["solve"].input_schema["properties"]) == {
+        "request",
+        "max_attempts",
+        "verify",
+    }
     assert by_name["describe_simulator"].input_schema.get("properties", {}) == {}
     assert instructions is not None
     assert "describe_simulator" in instructions
@@ -131,6 +135,18 @@ def test_solve_runs_the_agent(settings: Settings, runner: Recording) -> None:
     assert "unknown material 'H2O'" in final["errors"][0]
     assert Path(final["run_dir"], "trace.json").is_file()
     assert runner.timeouts == [17.0, 17.0]
+    assert final["findings"] == []  # verified by default (R-VER-6)
+
+
+def test_solve_reports_verification_findings(settings: Settings, runner: Recording) -> None:
+    """Covers R-VER-6: verify is on by default and its findings are returned."""
+    request = {"request": "5 cm of lead at 1 MeV", "max_attempts": 2}
+    final = _json(_call(_server(settings, runner), "solve", request))
+    assert final["status"] == "solved_unverified"  # the scripted demo always simulates water
+    assert {f["check"] for f in final["findings"]} >= {"V-MATERIAL"}
+    off = _json(_call(_server(settings, runner), "solve", {**request, "verify": False}))
+    assert off["status"] == "solved"
+    assert off["findings"] == []
 
 
 @pytest.mark.parametrize(

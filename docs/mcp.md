@@ -9,7 +9,7 @@ launch it as a subprocess.
 |---|---|---|
 | `describe_simulator` | none | photonsim API reference, the `simagent_io.submit` result contract, and the sandbox limits |
 | `run_simulation_script` | `code` | static policy check, then a run in the Docker sandbox; returns exit code, capped stdout/stderr, the submitted result and PNGs from `/out` (base64) |
-| `solve` | `request`, `max_attempts` (default 4, max 10) | the full agent: writes a script with the server's configured model, runs it, repairs it from the error output |
+| `solve` | `request`, `max_attempts` (default 4, max 10), `verify` (default true) | the full agent: writes a script with the server's configured model, runs it, repairs it from the error output; with `verify` it also checks the answer against the request and the simulation trace and returns the `findings` |
 
 Timeout, memory/CPU/PID limits and the runner are fixed by the server configuration. No tool
 accepts them, and extra arguments such as `timeout_s` are dropped before the tool runs. The

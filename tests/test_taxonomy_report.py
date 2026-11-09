@@ -93,3 +93,29 @@ def test_families_cover_every_class_once() -> None:
         "model_error",
     }
     assert len({c for _, _, c in taxonomy_report.FAMILIES}) == 8  # fixed slots, never cycled
+
+
+def test_committed_sample_is_current() -> None:
+    """Covers R-TAX-4: regenerate with `python scripts/report.py` if this fails."""
+    committed = (ROOT / "docs" / taxonomy_report.SAMPLE).read_text(encoding="utf-8")
+    assert committed == taxonomy_report.render_sample(ROOT)
+
+
+def test_sample_is_seeded_and_skips_ok(tmp_path: Path) -> None:
+    results = tmp_path / "results"
+    records = [_rec("single_01", True)] + [
+        _rec(
+            task_id,
+            False,
+            status="failed",
+            attempt_outcomes=["format_error"],
+            errors=["reply must contain exactly one ```python block (found 0)"],
+        )
+        for task_id in ("single_02", "single_03", "single_04")
+    ]
+    _write(results / "r.jsonl", records, None)
+    text = taxonomy_report.render_sample(ROOT, results)
+    assert text == taxonomy_report.render_sample(ROOT, results)
+    assert "3 of 3 failures" in text
+    assert text.count("`format`") == 3
+    assert "`ok`" not in text

@@ -483,7 +483,7 @@ Input and output tokens for every task, as reported by the provider, so cost can
 
 ## Failure taxonomy
 
-Every task outcome gets exactly one class from fixed rules over the recorded data (`src/simagent/evaluation/taxonomy.py`; no LLM). The classes are rule-based: they describe what the record shows, not why the model did it. v1 rows have no provenance trace, so their wrong answers can only be sub-typed by the trace-free checks and are mostly `wrong_other`.
+Every task outcome gets exactly one class from fixed rules over the recorded data (`src/simagent/evaluation/taxonomy.py`; no LLM). The classes are rule-based: they describe what the record shows, not why the model did it. v1 rows have no provenance trace, so their wrong answers can only be sub-typed by the trace-free checks and are mostly `wrong_other`. A seeded random sample of failures with their evidence, for a human spot-check, is in [taxonomy_sample.md](taxonomy_sample.md).
 
 ![Failure classes per configuration](taxonomy_chart.png)
 

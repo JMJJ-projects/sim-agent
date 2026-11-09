@@ -460,6 +460,8 @@ def write_report(root: Path, results_dir: Path | None = None, docs_dir: Path | N
         render_chart(runs, chart, [key for _, key in _ordered(plan, runs)])
     elif chart.exists():
         chart.unlink()
+    sample = taxonomy_report.render_sample(root, results_dir)
+    (docs / taxonomy_report.SAMPLE).write_text(sample, encoding="utf-8", newline="\n")
     rows = taxonomy_report.taxonomy_rows(root, results_dir)
     tax_chart = docs / taxonomy_report.CHART
     if rows:

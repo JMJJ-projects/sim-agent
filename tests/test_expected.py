@@ -99,3 +99,20 @@ def test_build_expected_keeps_the_trace(tmp_path: Path) -> None:
 
     data = build_expected([_task(tmp_path, "r.py")], tmp_path, TracingRunner())
     assert data["tasks"]["t"]["trace"] == {"calls": [1]}
+
+
+@pytest.mark.parametrize("name", sorted(TASK_SETS))
+def test_references_carry_their_trace(name: str) -> None:
+    """Covers R-TRACE-1 on the committed data: every reference that answers with a number
+    simulated something, and error-report references simulated nothing."""
+    expected = load_expected(TASK_SETS[name].expected_path(ROOT))["tasks"]
+    for task in load_task_set(name, ROOT):
+        if not task.runs_reference:
+            continue
+        trace = expected[task.id]["trace"]
+        assert trace is not None, task.id
+        assert trace["truncated"] is False, task.id
+        if task.checker["type"] == "reports_error":
+            assert trace["calls"] == [], task.id
+        else:
+            assert trace["calls"], task.id

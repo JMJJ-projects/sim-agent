@@ -1,4 +1,4 @@
-"""Agent graph nodes (R-AG-1 to R-AG-6, R-AG-8, R-AG-9).
+"""Agent graph nodes (R-AG-1 to R-AG-6, R-AG-8, R-AG-9, R-VER-1, R-VER-4, R-VER-5).
 
 Each node is a function ``(state) -> partial state update``, built by ``make_nodes`` with the
 dependencies bound in a closure. The model's output only ever becomes *code* that goes through
@@ -20,8 +20,13 @@ from simagent import prompts
 from simagent.codeblock import extract
 from simagent.metrics import stream_with_metrics
 from simagent.policy import check
+from simagent.request_facts import RequestFacts
+from simagent.request_facts import extract as extract_facts
 from simagent.runners.base import Runner, RunResult
 from simagent.state import AgentState, AttemptKind, AttemptRecord, FinalAnswer, new_attempt
+from simagent.verify import failures
+from simagent.verify import feedback as verify_feedback
+from simagent.verify import verify as run_verify
 
 STDERR_TAIL_LINES = 40
 STDOUT_TAIL_LINES = 10
@@ -200,12 +205,17 @@ def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
             updated["error"] = compact_error(run, deps.timeout_s)
         return {"current": updated}
 
+    def facts(state: AgentState) -> dict[str, Any]:
+        """Deterministic facts stated in the request (R-REQ-1), used by ``verify``."""
+        return {"facts": extract_facts(state["request"]).to_dict()}
+
     def evaluate_run(state: AgentState) -> dict[str, Any]:
         attempt = state["current"]
         assert attempt is not None
         attempts = [*state["attempts"], attempt]
-        for hook in deps.hooks:
-            hook.on_attempt(attempt)
+        if not (attempt["outcome"] == "ok" and state.get("verify")):
+            for hook in deps.hooks:  # a verified attempt is reported by ``verify``
+                hook.on_attempt(attempt)
         outcome = attempt["outcome"]
         if outcome == "ok":
             status = "solved"
@@ -217,11 +227,31 @@ def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
             status = "running"
         return {"attempts": attempts, "current": None, "status": status}
 
+    def verify(state: AgentState) -> dict[str, Any]:
+        """Check a successful run against the request and the trace (R-VER-1, R-VER-4/5)."""
+        attempts = list(state["attempts"])
+        attempt = AttemptRecord(**attempts[-1])
+        run = attempt["run"] or {}
+        facts_ = RequestFacts.from_dict(state.get("facts") or {})
+        findings = run_verify(facts_, run.get("result"), run.get("trace"))
+        attempt["findings"] = [f.to_dict() for f in findings]
+        status = "solved"
+        if failures(findings):
+            attempt["outcome"] = "verify_failed"
+            attempt["error"] = verify_feedback(findings)
+            # Same budget as any other repair (R-VER-4); out of attempts: R-VER-5.
+            status = "running" if len(attempts) < state["max_attempts"] else "solved_unverified"
+        attempts[-1] = attempt
+        for hook in deps.hooks:
+            hook.on_attempt(attempt)
+        return {"attempts": attempts, "status": status}
+
     def finalize(state: AgentState) -> dict[str, Any]:
         attempts = state["attempts"]
         last = attempts[-1]
         status = state["status"] if state["status"] != "running" else "failed"
-        result = (last["run"] or {}).get("result") if status == "solved" else None
+        answered = status in ("solved", "solved_unverified")
+        result = (last["run"] or {}).get("result") if answered else None
         with_code = [a for a in attempts if a["code"] is not None]
         explanation = last["explanation"] or (with_code[-1]["explanation"] if with_code else "")
         if status == "refused":
@@ -236,18 +266,21 @@ def make_nodes(deps: AgentDeps) -> dict[str, NodeFn]:
             attempts=len(attempts),
             errors=[a["error"] for a in attempts],
             refusal=last["refusal"],
-            files=((last["run"] or {}).get("files") or {}) if status == "solved" else {},
+            files=((last["run"] or {}).get("files") or {}) if answered else {},
             metrics=summarise_metrics(attempts),
+            findings=list(last.get("findings") or []),
         )
         for hook in deps.hooks:
             hook.on_final(state, final)
         return {"final": final, "status": status}
 
     return {
+        "facts": facts,
         "generate": generate,
         "check_policy": check_policy,
         "execute": execute,
         "evaluate_run": evaluate_run,
+        "verify": verify,
         "repair": repair,
         "finalize": finalize,
     }

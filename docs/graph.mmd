@@ -5,21 +5,27 @@ config:
 ---
 graph TD;
 	__start__([<p>__start__</p>]):::first
+	facts(facts)
 	generate(generate)
 	check_policy(check_policy)
 	execute(execute)
 	evaluate_run(evaluate_run)
+	verify(verify)
 	repair(repair)
 	finalize(finalize)
 	__end__([<p>__end__</p>]):::last
-	__start__ --> generate;
+	__start__ --> facts;
 	check_policy -.-> evaluate_run;
 	check_policy -.-> execute;
 	evaluate_run -.-> finalize;
 	evaluate_run -.-> repair;
+	evaluate_run -.-> verify;
 	execute --> evaluate_run;
+	facts --> generate;
 	generate --> check_policy;
 	repair --> check_policy;
+	verify -.-> finalize;
+	verify -.-> repair;
 	finalize --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0

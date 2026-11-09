@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-Status = Literal["running", "solved", "failed", "refused"]
+# "solved_unverified": an answer was returned, but verification findings remained when the
+# attempt budget ran out (R-VER-5).
+Status = Literal["running", "solved", "solved_unverified", "failed", "refused"]
 Outcome = Literal[
     "pending",
     "ok",
@@ -18,6 +20,7 @@ Outcome = Literal[
     "run_failed",
     "refused",
     "model_error",
+    "verify_failed",
 ]
 AttemptKind = Literal["generate", "repair"]
 
@@ -38,6 +41,7 @@ class AttemptRecord(TypedDict):
     metrics: dict[str, Any] | None
     model_s: float
     run_s: float
+    findings: list[dict[str, str]]
 
 
 class FinalAnswer(TypedDict):
@@ -54,6 +58,7 @@ class FinalAnswer(TypedDict):
     refusal: str | None
     files: dict[str, str]
     metrics: dict[str, Any]
+    findings: list[dict[str, str]]
 
 
 class AgentState(TypedDict, total=False):
@@ -61,6 +66,8 @@ class AgentState(TypedDict, total=False):
 
     request: str
     max_attempts: int
+    verify: bool
+    facts: dict[str, Any]
     attempts: list[AttemptRecord]
     current: AttemptRecord | None
     status: Status
@@ -82,12 +89,19 @@ def new_attempt(number: int, kind: AttemptKind) -> AttemptRecord:
         metrics=None,
         model_s=0.0,
         run_s=0.0,
+        findings=[],
     )
 
 
-def initial_state(request: str, max_attempts: int) -> AgentState:
+def initial_state(request: str, max_attempts: int, verify: bool = False) -> AgentState:
     if max_attempts < 1:
         raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
     return AgentState(
-        request=request, max_attempts=max_attempts, attempts=[], current=None, status="running"
+        request=request,
+        max_attempts=max_attempts,
+        verify=verify,
+        facts={},
+        attempts=[],
+        current=None,
+        status="running",
     )

@@ -274,6 +274,23 @@ class RequestFacts:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RequestFacts:
+        """Inverse of ``to_dict`` (the agent state stores facts as plain data)."""
+        ranges = {"energy_ranges", "length_ranges"}
+        nested = {"energy_lists", "length_lists"}
+        kwargs: dict[str, Any] = {}
+        for key, value in data.items():
+            if key in ranges:
+                kwargs[key] = tuple(Range(**r) for r in value)
+            elif key in nested:
+                kwargs[key] = tuple(tuple(v) for v in value)
+            elif isinstance(value, list | tuple):
+                kwargs[key] = tuple(value)
+            else:
+                kwargs[key] = value
+        return cls(**kwargs)
+
 
 def parse_number(text: str) -> float | None:
     """``"100,000"`` -> 100000, ``"1e5"`` -> 100000, ``"10^5"`` -> 100000; None if unclear."""

@@ -1,10 +1,14 @@
-"""LangGraph wiring of the self-correcting agent (R-AG-1, R-AG-5).
+"""LangGraph wiring of the self-correcting agent (R-AG-1, R-AG-5, R-VER-4..6).
 
-    generate -> check_policy -> execute -> evaluate_run -> repair -> check_policy -> ...
-                           \\-> evaluate_run (no runnable code)   \\-> finalize -> END
+    facts -> generate -> check_policy -> execute -> evaluate_run -> repair -> check_policy ...
+    check_policy -> evaluate_run              (no runnable code)
+    evaluate_run -> verify -> repair | finalize   (verify mode, successful run)
+    evaluate_run -> finalize -> END
 
-Routing is done by two pure functions so every outcome is unit-testable. Baseline mode is the
-same graph with ``max_attempts=1``.
+Routing is done by pure functions so every outcome is unit-testable. Modes (R-VER-6): baseline
+is the graph with ``max_attempts=1``, repair the full loop, and verify the full loop with the
+``verify`` node on (``state["verify"]``). Verification-triggered repairs share the same attempt
+budget as every other repair (R-VER-4).
 """
 
 from __future__ import annotations
@@ -27,8 +31,18 @@ def route_after_policy(state: AgentState) -> Literal["execute", "evaluate_run"]:
     return "evaluate_run"
 
 
-def route_after_evaluate(state: AgentState) -> Literal["repair", "finalize"]:
-    """Repair while the run is still open (failed attempt, attempts left)."""
+def route_after_evaluate(state: AgentState) -> Literal["repair", "verify", "finalize"]:
+    """Repair while the run is open; verify a successful run in verify mode; else finish."""
+    status = state.get("status")
+    if status == "running":
+        return "repair"
+    if status == "solved" and state.get("verify"):
+        return "verify"
+    return "finalize"
+
+
+def route_after_verify(state: AgentState) -> Literal["repair", "finalize"]:
+    """Repair on failed checks while attempts remain (R-VER-4); else finish."""
     return "repair" if state.get("status") == "running" else "finalize"
 
 
@@ -38,7 +52,8 @@ def build_graph(deps: AgentDeps) -> Any:
     g: StateGraph[AgentState] = StateGraph(AgentState)
     for name, fn in nodes.items():
         g.add_node(name, fn)
-    g.add_edge(START, "generate")
+    g.add_edge(START, "facts")
+    g.add_edge("facts", "generate")
     g.add_edge("generate", "check_policy")
     g.add_conditional_edges(
         "check_policy",
@@ -47,18 +62,29 @@ def build_graph(deps: AgentDeps) -> Any:
     )
     g.add_edge("execute", "evaluate_run")
     g.add_conditional_edges(
-        "evaluate_run", route_after_evaluate, {"repair": "repair", "finalize": "finalize"}
+        "evaluate_run",
+        route_after_evaluate,
+        {"repair": "repair", "verify": "verify", "finalize": "finalize"},
+    )
+    g.add_conditional_edges(
+        "verify", route_after_verify, {"repair": "repair", "finalize": "finalize"}
     )
     g.add_edge("repair", "check_policy")
     g.add_edge("finalize", END)
     return g.compile(name="simagent")
 
 
-def solve(request: str, deps: AgentDeps, max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> FinalAnswer:
-    """Run the agent on ``request`` and return the final answer."""
-    state = initial_state(request, max_attempts)
+def solve(
+    request: str,
+    deps: AgentDeps,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    *,
+    verify: bool = False,
+) -> FinalAnswer:
+    """Run the agent on ``request`` and return the final answer (``verify``: R-VER-6)."""
+    state = initial_state(request, max_attempts, verify=verify)
     graph = build_graph(deps)
-    out = graph.invoke(state, config={"recursion_limit": 6 * max_attempts + 10})
+    out = graph.invoke(state, config={"recursion_limit": 8 * max_attempts + 12})
     final: FinalAnswer = out["final"]
     return final
 

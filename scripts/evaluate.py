@@ -25,9 +25,10 @@ from simagent.evaluation.harness import (
     load_prices,
     run_eval,
 )
+from simagent.evaluation.runinfo import code_commit, ollama_model_info
 from simagent.evaluation.summary import read_records, summarise
 from simagent.evaluation.tasks import load_tasks
-from simagent.llm import make_chat_model, resolve_model
+from simagent.llm import make_chat_model, resolve_model, seed_supported
 from simagent.runners import DockerRunner, RunnerUnavailableError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,11 @@ def main(argv: list[str] | None = None) -> int:
         check_model(settings)
         tasks = load_tasks(ROOT / "data" / "tasks.jsonl")
         expected = load_expected(ROOT / "data" / "expected.json")["tasks"]
+        info = (
+            ollama_model_info(settings.ollama_base_url, model_name)
+            if settings.provider == "ollama"
+            else None
+        ) or {}
         cfg = EvalConfig(
             provider=settings.provider,
             model=model_name,
@@ -107,6 +113,12 @@ def main(argv: list[str] | None = None) -> int:
             delay_s=args.delay,
             sample_vram=args.vram,
             prices=load_prices(ROOT / "data" / "prices.json"),
+            temperature=settings.temperature,
+            seed=settings.llm_seed,
+            seed_supported=seed_supported(settings.provider),
+            model_digest=info.get("digest"),
+            quantization=info.get("quantization"),
+            code_commit=code_commit(ROOT),
         )
         if settings.provider == "fake":
             model_for = fake_model_factory(ROOT)

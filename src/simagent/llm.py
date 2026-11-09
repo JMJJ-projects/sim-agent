@@ -107,6 +107,15 @@ def resolve_model(settings: Settings) -> str:
     )
 
 
+# Whether the provider accepts a sampling seed (R-STAT-2). Groq and OpenAI document it as best
+# effort; the fake provider is scripted, so a seed means nothing there.
+SEED_SUPPORTED = {"ollama": True, "groq": True, "openai": True, "fake": False}
+
+
+def seed_supported(provider: str) -> bool:
+    return SEED_SUPPORTED.get(provider, False)
+
+
 def make_chat_model(
     settings: Settings, *, fake_replies: Sequence[str] | None = None
 ) -> BaseChatModel:
@@ -139,7 +148,14 @@ def make_chat_model(
             from langchain_groq import ChatGroq
         except ImportError:
             raise _missing_extra("groq") from None
-        return ChatGroq(model=model, temperature=settings.temperature, max_retries=2)
+        # ChatGroq has no ``seed`` field; the Groq API accepts ``seed`` (best effort, not
+        # guaranteed deterministic), so it goes through ``model_kwargs`` (see NOTES.md).
+        return ChatGroq(
+            model=model,
+            temperature=settings.temperature,
+            model_kwargs={"seed": settings.llm_seed},
+            max_retries=2,
+        )
     if provider == "openai":
         _require_key("OPENAI_API_KEY", provider)
         try:

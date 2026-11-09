@@ -5,6 +5,11 @@ deterministic checker against the reference result, and one JSON line appended t
 ``results/<run-name>.jsonl``. Lines are flushed one by one, so an interrupted run resumes with
 ``--resume``. Per-task artifacts go to ``runs/eval/<run-name>/<task-id>/`` (gitignored).
 
+A results file starts with one header line (``"kind": "header"``) holding the sampling settings,
+task set, model digest and code commit (R-STAT-2); resuming a file whose header disagrees with
+the current settings is refused, so runs with different settings never mix. v1 files have no
+header and are still readable.
+
 The evaluation always uses the Docker sandbox; the unsafe local runner is rejected (R-SBX-8).
 With ``--provider fake`` each task's scripted reply is its own reference solution: this proves
 the harness end to end and says nothing about model accuracy (R-EV-8).
@@ -38,6 +43,21 @@ from simagent.runners.local import LocalRunner
 from simagent.state import AgentState, AttemptRecord, FinalAnswer
 
 MODES = ("baseline", "repair")
+HEADER_KIND = "header"
+HEADER_SCHEMA = 2
+# Header fields that must match to resume a results file (sampling and run identity).
+RESUME_KEYS = (
+    "provider",
+    "model",
+    "model_digest",
+    "mode",
+    "task_set",
+    "temperature",
+    "seed",
+    "prompt_version",
+    "max_attempts",
+    "max_output_tokens",
+)
 
 
 def run_name_for(provider: str, model: str, mode: str, prompt_version: int) -> str:
@@ -162,6 +182,13 @@ class EvalConfig:
     rate_limit_wait_s: float = 30.0
     sample_vram: bool = False
     prices: dict[str, Any] = field(default_factory=dict)
+    task_set: str = "dev"
+    temperature: float | None = None
+    seed: int | None = None
+    seed_supported: bool | None = None
+    model_digest: str | None = None
+    quantization: str | None = None
+    code_commit: str | None = None
 
     @property
     def name(self) -> str:
@@ -182,13 +209,66 @@ class EvalConfig:
         return self.results_dir / f"{self.name}.summary.json"
 
 
+def is_header(obj: dict[str, Any]) -> bool:
+    return obj.get("kind") == HEADER_KIND
+
+
+def read_header(path: Path) -> dict[str, Any] | None:
+    """The header line of a results file, or None (missing/empty file, or a v1 file)."""
+    if not path.is_file():
+        return None
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip():
+                obj: dict[str, Any] = json.loads(line)
+                return obj if is_header(obj) else None
+    return None
+
+
+def results_header(cfg: EvalConfig) -> dict[str, Any]:
+    """The header line for ``cfg`` (R-STAT-2)."""
+    return {
+        "kind": HEADER_KIND,
+        "schema": HEADER_SCHEMA,
+        "run_name": cfg.name,
+        "provider": cfg.provider,
+        "model": cfg.model,
+        "model_digest": cfg.model_digest,
+        "quantization": cfg.quantization,
+        "mode": cfg.mode,
+        "task_set": cfg.task_set,
+        "temperature": cfg.temperature,
+        "seed": cfg.seed,
+        "seed_supported": cfg.seed_supported,
+        "prompt_version": cfg.prompt_version,
+        "max_attempts": cfg.attempts_for_mode,
+        "max_output_tokens": cfg.max_output_tokens,
+        "code_commit": cfg.code_commit,
+        "created_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+
+def check_resume_header(path: Path, header: dict[str, Any]) -> None:
+    """Refuse to resume a results file written with different settings (R-STAT-1/2)."""
+    existing = read_header(path)
+    if existing is None:
+        return
+    diff = {k: (existing.get(k), header.get(k)) for k in RESUME_KEYS}
+    diff = {k: v for k, v in diff.items() if v[0] != v[1]}
+    if diff:
+        detail = ", ".join(f"{k}: file {a!r} vs now {b!r}" for k, (a, b) in diff.items())
+        raise ConfigError(f"cannot resume {path.name}: settings differ ({detail})")
+
+
 def done_task_ids(path: Path) -> set[str]:
     if not path.is_file():
         return set()
     ids = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():
-            ids.add(json.loads(line)["task_id"])
+            obj = json.loads(line)
+            if not is_header(obj):
+                ids.add(obj["task_id"])
     return ids
 
 
@@ -257,6 +337,10 @@ def evaluate_task(
         "model": cfg.model,
         "mode": cfg.mode,
         "prompt_version": cfg.prompt_version,
+        "task_set": cfg.task_set,
+        "temperature": cfg.temperature,
+        "seed": cfg.seed,
+        "code_commit": cfg.code_commit,
         "max_output_tokens": cfg.max_output_tokens,
         "max_attempts": cfg.attempts_for_mode,
         "status": status,
@@ -299,11 +383,17 @@ def run_eval(
     path = cfg.results_path
     if path.exists() and not cfg.resume:
         raise ConfigError(f"{path} exists; pass --resume to continue it or use another --run-name")
+    header = results_header(cfg)
+    check_resume_header(path, header)
     done = done_task_ids(path)
     selected = tasks[: cfg.limit] if cfg.limit else tasks
     path.parent.mkdir(parents=True, exist_ok=True)
     new: list[dict[str, Any]] = []
+    fresh = not path.is_file() or not path.read_text(encoding="utf-8").strip()
     with path.open("a", encoding="utf-8", newline="\n") as fh:
+        if fresh:
+            fh.write(json.dumps(header, ensure_ascii=False) + "\n")
+            fh.flush()
         for task in selected:
             if task.id in done:
                 continue

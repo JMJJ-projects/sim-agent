@@ -196,3 +196,17 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   checker was not changed.
 - Expected values: `python scripts/make_expected.py --task-set heldout` (23 results;
   `ho_adv_02` is a refusal with nothing to run). The values were identical to the host run.
+
+## Sampling settings in results headers (v2 Phase 2.1, 2026-11-09)
+
+- v2 results files start with one header line (`"kind": "header"`): provider, model, Ollama
+  digest and quantisation (from `/api/tags`), mode, task set, temperature, seed,
+  `seed_supported`, prompt version, attempt budget, output-token cap, code commit (with `-dirty`
+  when tracked files are modified). Resuming a file whose header differs on any sampling or
+  identity field is refused; the code commit may differ on resume and is also stored per record.
+  v1 files have no header and are read as before.
+- **Groq seed:** `langchain-groq` 1.1.3 `ChatGroq` has no `seed` field, but the Groq API
+  reference (console.groq.com/docs/api-reference, checked 2026-11-09) documents `seed` on chat
+  completions: "best effort to sample deterministically", "Determinism is not guaranteed". It is
+  passed via `model_kwargs` (verified in `ChatGroq._default_params`). So `seed_supported` is
+  `true` for Groq, meaning "accepted", not "reproducible". The fake provider records `false`.

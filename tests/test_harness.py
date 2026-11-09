@@ -61,7 +61,7 @@ def test_fake_eval_end_to_end_and_resume(tmp_path: Path) -> None:
     assert [r["task_id"] for r in first] == ["single_01", "ambig_01"]
     assert all(r["passed"] for r in first)
     lines = cfg.results_path.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 2
+    assert len(lines) == 3  # header + one line per task
 
     with pytest.raises(ConfigError, match="--resume"):
         run_eval(_cfg(tmp_path), tasks, EXPECTED, Delegating(), factory)
@@ -263,3 +263,79 @@ def test_evaluate_script_smoke(tmp_path: Path) -> None:
         ).read_text(encoding="utf-8")
     )
     assert summary["tasks"] == 3
+
+
+def test_results_file_starts_with_sampling_header(tmp_path: Path) -> None:
+    """Covers R-STAT-2: every results file records its sampling settings in a header line."""
+    cfg = _cfg(
+        tmp_path,
+        task_set="heldout",
+        temperature=0.7,
+        seed=3,
+        seed_supported=False,
+        model_digest="abc",
+        quantization="Q4_K_M",
+        code_commit="deadbeef",
+    )
+    records = run_eval(cfg, _pick("single_01"), EXPECTED, Delegating(), fake_model_factory(ROOT))
+    lines = cfg.results_path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    assert harness.is_header(header)
+    assert harness.read_header(cfg.results_path) == header
+    expected_fields = {
+        "provider": "fake",
+        "model": "scripted",
+        "model_digest": "abc",
+        "quantization": "Q4_K_M",
+        "mode": "repair",
+        "task_set": "heldout",
+        "temperature": 0.7,
+        "seed": 3,
+        "seed_supported": False,
+        "prompt_version": cfg.prompt_version,
+        "max_attempts": 4,
+        "code_commit": "deadbeef",
+    }
+    assert {k: header[k] for k in expected_fields} == expected_fields
+    assert len(lines) == 2
+    assert records[0]["seed"] == 3
+    assert records[0]["temperature"] == 0.7
+    assert records[0]["task_set"] == "heldout"
+    assert [r["task_id"] for r in read_records(cfg.results_path)] == ["single_01"]
+    assert harness.done_task_ids(cfg.results_path) == {"single_01"}
+
+
+def test_resume_refuses_different_settings(tmp_path: Path) -> None:
+    """Covers R-STAT-1/2: a resumed file never mixes seeds or temperatures."""
+    tasks = _pick("single_01", "ambig_01")
+    factory = fake_model_factory(ROOT)
+    run_eval(
+        _cfg(tmp_path, seed=0, temperature=0.7, limit=1), tasks, EXPECTED, Delegating(), factory
+    )
+    with pytest.raises(ConfigError, match=r"seed: file 0 vs now 1"):
+        run_eval(
+            _cfg(tmp_path, seed=1, temperature=0.7, resume=True),
+            tasks,
+            EXPECTED,
+            Delegating(),
+            factory,
+        )
+    more = run_eval(
+        _cfg(tmp_path, seed=0, temperature=0.7, resume=True, code_commit="other"),
+        tasks,
+        EXPECTED,
+        Delegating(),
+        factory,
+    )
+    assert [r["task_id"] for r in more] == ["ambig_01"]
+    path = _cfg(tmp_path).results_path
+    assert sum(harness.is_header(json.loads(x)) for x in path.read_text().splitlines()) == 1
+
+
+def test_v1_file_without_header_is_still_read(tmp_path: Path) -> None:
+    path = tmp_path / "v1.jsonl"
+    path.write_text(json.dumps(_rec(task_id="a")) + "\n", encoding="utf-8")
+    assert harness.read_header(path) is None
+    assert harness.read_header(tmp_path / "missing.jsonl") is None
+    harness.check_resume_header(path, {"seed": 1})  # nothing to compare against
+    assert harness.done_task_ids(path) == {"a"}

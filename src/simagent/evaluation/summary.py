@@ -15,11 +15,13 @@ import numpy as np
 
 
 def read_records(path: Path) -> list[dict[str, Any]]:
-    """Records of a results JSONL file (the last record wins for a repeated task id)."""
+    """Task records of a results JSONL file (header skipped; last record wins per task id)."""
     by_id: dict[str, dict[str, Any]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():
             rec = json.loads(line)
+            if rec.get("kind") == "header":  # v2 results header (R-STAT-2), not a task
+                continue
             by_id[rec["task_id"]] = rec
     return list(by_id.values())
 

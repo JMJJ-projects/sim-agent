@@ -87,3 +87,23 @@ def test_num_ctx_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SIMAGENT_NUM_CTX", "0")
     with pytest.raises(ConfigError, match=">= 1"):
         Settings.from_env(provider="fake")
+
+
+def test_seed_reaches_every_seeded_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Covers R-STAT-2: the sampling seed and temperature are passed to the provider."""
+    from dataclasses import replace
+
+    from simagent.llm import seed_supported
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    base = Settings.from_env(provider="groq", model="m")
+    groq = make_chat_model(replace(base, temperature=0.7, llm_seed=3))
+    assert groq._default_params["seed"] == 3  # type: ignore[attr-defined]
+    assert groq._default_params["temperature"] == 0.7  # type: ignore[attr-defined]
+    ollama = make_chat_model(replace(base, provider="ollama", llm_seed=4, temperature=0.7))
+    assert ollama.seed == 4  # type: ignore[attr-defined]
+    assert ollama.temperature == 0.7  # type: ignore[attr-defined]
+    assert seed_supported("ollama")
+    assert seed_supported("groq")
+    assert not seed_supported("fake")
+    assert not seed_supported("unknown")

@@ -314,3 +314,21 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
 - **After:** pending the Phase 6 runs (prompt v3). Caveat: those run at temperature 0.7 over
   several seeds, so they are not a like-for-like comparison with the v1 numbers above; a clean
   before/after needs v2 and v3 runs with the same v2 settings (decision for CHECKPOINT C).
+
+## CHECKPOINT C facts (2026-11-09)
+
+- **Groq rate limits** (console.groq.com/docs/rate-limits, read 2026-11-09), `openai/gpt-oss-120b`:
+  30 RPM, 1K RPD, 8K TPM, 200K TPD. The page says the table shows the *Developer* plan's base
+  limits; the free-tier values for this account must be confirmed at
+  console.groq.com/settings/limits. With 30 s between tasks, RPM and TPM are far from binding;
+  **TPD is binding**: v1 used about 2.0-2.2K tokens per task, so the 540 planned Groq tasks need
+  roughly 1.2M tokens, i.e. about 6 days at 200K/day.
+- **Ollama tags** (ollama.com/library/qwen2.5-coder/tags, read 2026-11-09):
+  `qwen2.5-coder:3b-instruct-q8_0` 3.3 GB; `qwen2.5-coder:7b-instruct-q4_K_M` 4.7 GB (same digest
+  as `qwen2.5-coder:7b`). The default `qwen2.5-coder:3b` (digest f72c60cabf62, 1.9 GB) is Q4_K_M.
+- **Timing probe** (prompt v3, verify, seed 0, temperature 0.7, first 3 dev tasks; first 2 on
+  Groq; `runs/probe`, not committed): 3B 3/3 (2.5-4.7 s per task), 1.5B 2/3 (2.5-7.2 s), Groq
+  2/2 (2.2 s + 30 s delay). These are single-run tasks only, so the ETAs use the full 36-task v1
+  runs (mean latency per task) instead. Per-model memory from `/api/ps`: 3B uses 2137 MiB, 100 %
+  on the GPU (nvidia-smi total 2229 MiB).
+- Disk: 12 GB free on C: when checked.

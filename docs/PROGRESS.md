@@ -34,10 +34,24 @@ this section and are not redone.
   - 463 tests pass with Docker required. CI for Phase 2 not seen yet (not pushed; next push
     point is CHECKPOINT B).
 
+- **Phase 3 (R-TRACE-1..3, R-POL-6):**
+  - `photonsim._provenance` records every `simulate()` call and `sweep()` point when
+    `PHOTONSIM_TRACE=1` (set by the image), capped at 500 (`f32add5`).
+  - `submit()` writes `/out/trace.json` before the result; `RunResult.trace`; artifacts save
+    `attempt_N/provenance.json`; image tag `simagent-sandbox:2` (`94b867f`).
+  - R-POL-6: photonsim public API only, recorder names rejected, no patching of imported
+    modules/names (attribute assignment, del, setattr/delattr, aliases), modules only as
+    `module.attr` (`37025dc`).
+  - Docker forging tests with the policy bypassed (`c7af6d8`); limits of that guarantee are in
+    NOTES.md.
+  - Expected values regenerated with traces; every value and reference hash unchanged
+    (`edf1801`, `2a7fc0c`). 527 tests pass with Docker required.
+
 ### Next
 
-- Phase 3: provenance trace (photonsim recorder, trace from the sandbox, R-POL-6, forging test,
-  expected values regenerated with traces).
+- Phase 4: request facts (R-REQ), verifier checks (R-VER-2), references pass the verifier
+  (R-VER-3), `facts`/`verify` graph nodes with the shared budget, CLI/MCP verify mode, verifier
+  quality metrics; then CHECKPOINT B.
 
 ### Open questions
 

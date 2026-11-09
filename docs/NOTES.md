@@ -170,3 +170,29 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
 - The pre-commit checks must run with Docker on `PATH` and `SIMAGENT_REQUIRE_DOCKER=1`;
   otherwise the Docker tests silently skip. That hid a broken smoke test from `e030ed3` until
   `346ad8f`. In Git Bash: `export PATH="$LOCALAPPDATA/Programs/DockerDesktop/resources/bin:$PATH"`.
+
+# v2 notes
+
+## Held-out set (v2 Phase 1, 2026-11-09)
+
+- **Location:** `SPEC-v2.md` and `PLAN-v2.md` were handed over in a sibling folder
+  (`../sim-agent-v2-plan/`), not in the repo. The spec was merged into `SPEC.md`; `SPEC-v2.md` was
+  never committed, so nothing was deleted from the repo. The sibling folder was left untouched.
+- **Authoring checks (before the prompts were final):** every reference was run on the host first
+  (my own reference code, not model output). One comparison was a near-tie (30 cm concrete vs
+  30 cm polyethylene at 0.3 MeV reflect 0.2293 vs 0.2287), so it was replaced by 30 cm concrete
+  vs 5 cm iron (0.229 vs 0.207, about 17σ). Each threshold task was re-run with seeds 2–11: the
+  crossing stayed within one grid step of the seed-1 reference (the checker's tolerance) every time.
+- **Near-duplicate rule:** token-set Jaccard (lower-cased words and numbers) between each
+  held-out and each dev prompt must stay below 0.6. For scale: dev prompts written from one
+  template reach 0.70–0.85 with each other, and the shared result-contract wording alone gives
+  about 0.4. Two drafts reused dev sentence frames (0.60 and 0.58) and were rephrased; the
+  committed maximum is 0.54.
+- **`simagent_io.submit` rejects non-string dict keys:** one reference first keyed a dict by
+  float energies. The host check used a stand-in `submit` and missed it; the sandbox run caught it.
+  Fixed in the reference before the data commit (no held-out commit was ever pushed).
+- **`equals` on lists is case-sensitive per item** (`_norm` lower-cases only plain strings), so
+  the ranking task asks for "the names returned by list_materials()" (wording set at checkpoint A). The
+  checker was not changed.
+- Expected values: `python scripts/make_expected.py --task-set heldout` (23 results;
+  `ho_adv_02` is a refusal with nothing to run). The values were identical to the host run.

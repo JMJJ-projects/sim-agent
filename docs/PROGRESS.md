@@ -11,15 +11,28 @@ this section and are not redone.
 
 - **Phase 0:** v2 requirements merged into `SPEC.md` (sections 9–18, IDs unchanged); `PLAN-v2.md`
   and the v2 `CLAUDE.md` committed; v1 analysis moved to `docs/eval_analysis_v1.md`.
+- **Phase 1 (R-HO-1..3):** `data/tasks_heldout.jsonl` (24 tasks: 3 single, 4 sweep, 3 compare,
+  4 search, 4 multi-step, 4 ambiguous, 2 adversarial) with references in
+  `data/reference/heldout/`; task-set registry (`TASK_SETS`) and
+  `make_expected.py --task-set {dev,heldout,all}`; `data/expected_heldout.json` generated in the
+  Docker sandbox; tests for the category mix, near-duplicates vs dev (Jaccard < 0.6, max 0.54),
+  the four ambiguity modes, and that every checker accepts its own reference (dev and held-out).
+  415 tests pass with Docker required. Authoring checks are in `NOTES.md`.
+- **Tag:** annotated `heldout-frozen` created **locally** on `8c7f1fe` (not pushed).
+
+### CHECKPOINT A (now)
+
+Waiting for the user to review the 24 held-out prompts. Changes are allowed only now, before
+the tag is pushed; after approval the set is frozen for good (R-HO-4/5).
 
 ### Next
 
-- Phase 1: held-out task set (24 tasks), expected values, tests, tag `heldout-frozen`, then
-  CHECKPOINT A.
+- Phase 2: sampling settings in results headers, `--seeds` / `--task-set` in `evaluate.py`,
+  `stats.py` (bootstrap CIs, paired tests, McNemar, pass^k), `bench.py` v2 plan, CI smoke.
 
 ### Open questions
 
-- None yet.
+- Do the held-out prompts read like real user questions, and do any look like copies of dev tasks?
 
 ---
 

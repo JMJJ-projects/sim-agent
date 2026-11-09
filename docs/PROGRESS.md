@@ -2,6 +2,29 @@
 
 Living log of where the project stands. Updated at the end of every session and at checkpoints.
 
+## v2 (Part A in progress, started 2026-11-09)
+
+Plan: `PLAN-v2.md`; requirements: `SPEC.md` sections 9–18. v1's status and history follow below
+this section and are not redone.
+
+### Done
+
+- **Phase 0:** v2 requirements merged into `SPEC.md` (sections 9–18, IDs unchanged); `PLAN-v2.md`
+  and the v2 `CLAUDE.md` committed; v1 analysis moved to `docs/eval_analysis_v1.md`.
+
+### Next
+
+- Phase 1: held-out task set (24 tasks), expected values, tests, tag `heldout-frozen`, then
+  CHECKPOINT A.
+
+### Open questions
+
+- None yet.
+
+---
+
+# v1 history
+
 ## Status: all phases done, pushed, CI green (2026-11-07)
 
 Checkpoint A reviewed by the user: Docker image built, 14/14 Docker tests pass locally.
@@ -122,7 +145,7 @@ aborts on the 1.5B model; one 31 s container start while two runs shared Docker.
 
 - Recorded demo `docs/demo.svg` (real round 1 run: NameError → repair → pass), recorded MCP
   session `docs/mcp_demo.md`, README (generated results block, analysis summary, security table,
-  make targets), `docs/eval_analysis.md`.
+  make targets), `docs/eval_analysis_v1.md`.
 - Final pass: 404 tests pass with Docker required (`SIMAGENT_REQUIRE_DOCKER=1`), coverage 96 %,
   ruff + mypy --strict clean. Fresh clone check: `pip install -e .` → `simagent solve "..."
   --provider fake` shows the full repair cycle (exit 0); without Docker, `doctor` and `solve`

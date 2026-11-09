@@ -155,7 +155,7 @@ Deviations from `PLAN.md`, library quirks and environment facts.
 
 `qwen2.5-coder:3b`, 36 tasks: baseline 7/36 (v1) → 23/36 (v2); repair 20/36 → 24/36; mean
 attempts on solved tasks in repair mode 1.70 → 1.17; median repair latency 12.7 s → 4.8 s;
-input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analysis.md`.
+input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analysis_v1.md`.
 
 ### Other benchmark observations
 

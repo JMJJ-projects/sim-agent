@@ -108,7 +108,7 @@ The CI workflow's `sandbox` job builds the image and runs these Docker tests, an
 
 ![Success rate by model and mode; latency vs success](docs/eval_chart.png)
 
-**What the numbers say** ([full analysis](docs/eval_analysis.md)): with the original prompt the
+**What the numbers say** ([full analysis](docs/eval_analysis_v1.md)): with the original prompt the
 repair loop lifted the 3B coder from 7 to 20 of 36, mostly by fixing one missing import; a
 one-line prompt change (v2) got the same model to 23 single-shot, after which repair adds little.
 Repair fixes crashes, not wrong logic ("solved but wrong" rises in repair mode), and for the

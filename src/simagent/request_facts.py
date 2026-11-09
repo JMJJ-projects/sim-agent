@@ -7,8 +7,9 @@ What is extracted, converted to simulator units (cm, MeV):
   "A to B") with a step when stated ("in 0.5 cm steps", "steps of 2 cm", "every 5 cm",
   "whole centimetres");
 * photon counts ("20000 photons", "1e5 photons", "100,000 photons") and seeds ("seed 3");
-* the requested quantity (transmitted / reflected / absorbed / thickness / energy) and whether
-  the answer is requested in percent;
+* the requested quantity (transmitted / reflected / absorbed / thickness / energy), whether
+  the answer is requested in percent, and whether it is *derived* from simulated values (a
+  ratio, factor, difference, change, fit or slope) rather than a simulated fraction itself;
 * known materials (with aliases such as "aluminum") and unknown material candidates in material
   position ("5 cm of X", "a 3 cm X plate", "an X plate 4 cm thick").
 
@@ -101,6 +102,11 @@ _FATES = {
     "reflected": re.compile(r"\breflect\w*|\bback-?\s?scatter\w*|\bbounces?\s+back\b", re.I),
     "absorbed": re.compile(r"\babsorb\w*|\babsorption\b", re.I),
 }
+_DERIVED = re.compile(
+    r"\b(?:ratio|factor|difference|minus|slope|fit|coefficient|increase|decrease|drop|change)"
+    r"s?\b|\bhow\s+much\s+(?:larger|smaller|more|less|higher|lower)\b",
+    re.I,
+)
 _SEARCH = {
     "thickness": re.compile(
         r"\bhow\s+(?:thick|deep)\b|\b(?:smallest|thinnest|minimum|minimal)\b[^.?!]*?"
@@ -252,6 +258,7 @@ class RequestFacts:
     seeds: tuple[int, ...] = ()
     quantity: str | None = None
     percent: bool = False
+    derived: bool = False
     materials: tuple[str, ...] = ()
     unknown_materials: tuple[str, ...] = ()
     notes: tuple[str, ...] = field(default=())
@@ -453,6 +460,7 @@ def extract(request: str) -> RequestFacts:
         seeds=tuple(dict.fromkeys(int(m.group("n")) for m in _SEED.finditer(request))),
         quantity=_quantity(request),
         percent=bool(_PERCENT.search(request)),
+        derived=bool(_DERIVED.search(request)),
         materials=_materials(request),
         unknown_materials=_unknown_materials(request),
     )

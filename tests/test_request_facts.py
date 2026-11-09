@@ -78,6 +78,10 @@ CASES: list[tuple[str, dict[str, Any]]] = [
     ("at least 5000 photons per point, transmitted fraction", {"quantity": "transmitted"}),
     ("Which energy penetrates best?", {"quantity": "energy"}),
     ("Give the answer as a percentage.", {"percent": True}),
+    ("Report T(4 MeV) / T(1 MeV) as a ratio.", {"derived": True}),
+    ("By how much lower is the reflected share?", {"derived": True}),
+    ("Fit a straight line and give the slope.", {"derived": True}),
+    ("Report the transmitted share for 9 cm.", {"derived": False}),
     ("below 5 % transmission", {"percent": False}),  # a threshold, not a percent answer
     # --- materials
     ("aluminum and aluminium are the same", {"materials": ("aluminium",)}),

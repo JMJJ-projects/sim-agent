@@ -274,3 +274,23 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
 - **R-VER-3:** all 32 runnable dev references pass with zero `fail` findings, both on the stored
   traces and in a fresh Docker run (`tests/test_verify_references.py`). **No check had to be
   narrowed after running references.** The verifier was not run on held-out references (R-HO-5).
+
+## v1 replay estimate (after CHECKPOINT B, 2026-11-09)
+
+- Requested by the user: replay every v1 final script that returned an answer (correct and
+  wrong, dev only), get traces, run the verifier. `scripts/replay_v1.py` ->
+  `results/v1_replay_verify.json`. **An estimate**: v1 scripts, temperature 0, the agent never saw
+  the findings.
+- Totals: 188 replayed (0 rejected by the current policy), 9 answers differ from the record (so
+  the checker, which judges the replayed answer, finds 42 wrong instead of 43). Verifier: 19 of
+  42 wrong answers caught (V-LENGTH 11, V-COUNT 5, V-SWEEP 5, V-ENERGY 4, V-MATERIAL 4,
+  V-UNKNOWN 3 findings, several per answer); 4 false alarms on 146 correct answers.
+- **All 4 false alarms have one cause:** `qwen2.5-coder:1.5b` (prompt v2, repair) pasted the API
+  reference's example sweep (`[1, 2, 4]` cm, 20 000 photons, sometimes lead at 1 MeV) into
+  otherwise correct scripts (single_01, single_04, single_05, adv_04). The answer comes from the
+  correct simulation; the extra calls trip V-LENGTH, V-COUNT, V-ENERGY and V-MATERIAL.
+- **No check was changed.** A general narrowing would be possible (e.g. check only the traced
+  calls whose values the answer was taken from, or report unrequested extra calls as `warn`), but
+  it would also weaken catches of real mistakes, and the planned benchmark measures false alarms
+  directly. Decision deferred: revisit only with the user, before the Phase 6 runs, and log it
+  here if made. The dev-only rule still holds; held-out data was not used.

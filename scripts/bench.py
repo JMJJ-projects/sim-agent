@@ -1,6 +1,7 @@
 """Benchmark driver for the v2 plan (PLAN-v2 2.4).
 
     python scripts/bench.py run [--plan data/bench_plan_v2.json] [--only MODEL] [--round R]
+                                [--units N]   # stop after N results files
     python scripts/bench.py [status] [...]  # progress of every planned results file + ETA
     python scripts/bench.py promote [...]   # copy complete results files to results/v2/
 
@@ -63,6 +64,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--plan", type=Path, default=ROOT / "data" / "bench_plan_v2.json")
     ap.add_argument("--only", help="only planned runs for this model tag")
     ap.add_argument("--round", dest="round_", help="only planned runs of this round/block")
+    ap.add_argument(
+        "--units",
+        type=int,
+        default=None,
+        help="run: stop after this many results files (e.g. a daily token budget)",
+    )
     args = ap.parse_args(argv)
     units = select(
         expand(load_plan(args.plan), prompts.resolve_version(None)), args.only, args.round_
@@ -72,7 +79,15 @@ def main(argv: list[str] | None = None) -> int:
         print_status(units, counts, STAGING)
         return 0
     if args.action == "run":
-        for unit in units:
+        started = 0
+        for row in progress(units, STAGING, counts):
+            if row.state == "complete":
+                continue
+            if args.units is not None and started >= args.units:
+                print(f"stopping after {args.units} results file(s) (--units)", flush=True)
+                return 0
+            started += 1
+            unit = row.unit
             print_status(units, counts, STAGING)
             print(f"== {unit.name}", flush=True)
             cmd = [sys.executable, "-u", str(ROOT / "scripts" / "evaluate.py")]

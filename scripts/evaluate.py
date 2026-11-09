@@ -24,6 +24,7 @@ from simagent.config import ConfigError, Settings, load_env
 from simagent.evaluation.expected import load_expected
 from simagent.evaluation.harness import (
     MODES,
+    DailyLimitError,
     EvalConfig,
     fake_model_factory,
     load_prices,
@@ -186,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
                     f"summary written to {cfg.summary_path}",
                     flush=True,
                 )
+    except DailyLimitError as exc:
+        print(
+            f"stopped: {exc}\nnothing was recorded for that task; resume after the reset",
+            file=sys.stderr,
+        )
+        return 3
     except (ConfigError, RunnerUnavailableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

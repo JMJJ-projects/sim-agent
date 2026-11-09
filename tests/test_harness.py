@@ -482,3 +482,20 @@ def test_summary_reports_model_memory() -> None:
     ]
     s = summarise(recs)
     assert (s["model_size_mib"], s["model_vram_mib"], s["gpu_fraction"]) == (2000, 1900, 0.75)
+
+
+class DailyLimitedModel(ScriptedChatModel):
+    def _next(self, messages: Any) -> str:
+        raise RuntimeError(
+            "Error code: 429 - Rate limit reached on tokens per day (TPD): Limit 200000"
+        )
+
+
+def test_daily_limit_stops_without_recording(tmp_path: Path) -> None:
+    """A daily quota is not a model failure: the run stops and the task is not recorded."""
+    cfg = _cfg(tmp_path, rate_limit_wait_s=0.0)
+    with pytest.raises(harness.DailyLimitError, match="daily limit reached on single_01"):
+        run_eval(
+            cfg, _pick("single_01"), EXPECTED, Delegating(), lambda t: DailyLimitedModel(replies=[])
+        )
+    assert harness.done_task_ids(cfg.results_path) == set()

@@ -96,6 +96,16 @@ def seed_suffix(task_set: str | None, seed: int | None) -> str:
 RATE_LIMIT_MARKERS = ("RateLimit", "rate limit", "rate_limit", "429")
 
 
+# A daily quota (tokens or requests per day) will not clear by waiting minutes: stop the run
+# without recording the task, so a later run resumes it instead of scoring a quota stop as a
+# model failure.
+DAILY_LIMIT_MARKERS = ("per day", "TPD", "RPD")
+
+
+class DailyLimitError(RuntimeError):
+    """The provider's daily quota is used up; the run stops and the task is not recorded."""
+
+
 class RateLimitedError(RuntimeError):
     """The provider rate-limited a model call; the task should be retried later."""
 
@@ -557,6 +567,8 @@ def _evaluate_with_retries(
         try:
             record = evaluate_task(task, cfg, model_for(task), runner, expected)
         except RateLimitedError as exc:
+            if any(m in str(exc) for m in DAILY_LIMIT_MARKERS):
+                raise DailyLimitError(f"daily limit reached on {task.id}: {exc}") from None
             if attempt == cfg.rate_limit_retries:
                 break
             wait = cfg.rate_limit_wait_s * (2**attempt)

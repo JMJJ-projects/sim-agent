@@ -89,11 +89,15 @@ def test_plan_rejects_duplicate_files() -> None:
 
 def test_committed_v2_plan_is_valid() -> None:
     """The committed plan expands: dev + held-out x seeds for each run (PLAN-v2 Phase 6)."""
-    units = expand(benchplan.load_plan(ROOT / "data" / "bench_plan_v2.json"), 2)
+    units = expand(benchplan.load_plan(ROOT / "data" / "bench_plan_v2.json"), PROMPT_VERSION_LATEST)
     local = [u for u in units if u.provider == "ollama" and u.round == "6.1"]
     hosted = [u for u in units if u.provider == "groq"]
     assert len(local) == 2 * 3 * 2 * 5  # 2 models x 3 modes x 2 task sets x 5 seeds
-    assert len(hosted) == 3 * 2 * 3  # 3 modes x 2 task sets x 3 seeds
+    assert len(hosted) == 2 * 2 * 2  # repair + verify x 2 task sets x seeds 0-1
+    assert {u.mode for u in hosted} == {"repair", "verify"}
+    v2 = [u for u in units if u.round == "6.1b"]
+    assert len(v2) == 2 * 5
+    assert {(u.prompt_version, u.mode, u.model) for u in v2} == {(2, "repair", "qwen2.5-coder:3b")}
     quant = [u for u in units if u.round == "6.3"]
     assert len(quant) == 2 * 2 * 3  # 2 models x 2 task sets x 3 seeds, verify only
     assert {u.mode for u in quant} == {"verify"}
@@ -187,3 +191,22 @@ def test_bench_default_action_is_status(
     monkeypatch.setattr(bench, "STAGING", tmp_path)
     assert bench.main(["--plan", str(ROOT / "data" / "bench_plan_v2.json")]) == 0
     assert "ETA" in capsys.readouterr().out
+
+
+def test_bench_run_stops_after_units(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--units N runs at most N unfinished results files (a daily token budget)."""
+    bench = _bench_module()
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"runs": [_run(seeds=[0, 1, 2])]}), encoding="utf-8")
+    monkeypatch.setattr(bench, "STAGING", tmp_path / "staging")
+    calls: list[list[str]] = []
+
+    class Done:
+        returncode = 0
+
+    monkeypatch.setattr(bench.subprocess, "run", lambda cmd, check: calls.append(cmd) or Done())
+    assert bench.main(["run", "--plan", str(plan), "--units", "2"]) == 0
+    assert len(calls) == 2
+    assert "--units" in capsys.readouterr().out

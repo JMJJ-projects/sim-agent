@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from photonsim.engine import check_n_photons, check_seed, simulate
+from photonsim import _provenance
+from photonsim.engine import check_n_photons, check_seed, run_simulation
 from photonsim.geometry import Slab
 from photonsim.result import Result
 
@@ -39,5 +40,9 @@ def sweep(
         slab = build(float(v))
         if not isinstance(slab, Slab):
             raise ValueError(f"build({v!r}) must return a Slab, got {type(slab).__name__}")
-        out.append((float(v), simulate(slab, energy_mev, n_photons, seed)))
+        result = run_simulation(slab, energy_mev, n_photons, seed)
+        _provenance.recorder().record(
+            "sweep", slab, energy_mev, int(n_photons), seed, result, value=float(v)
+        )
+        out.append((float(v), result))
     return out

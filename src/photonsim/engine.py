@@ -6,6 +6,7 @@ import math
 
 import numpy as np
 
+from photonsim import _provenance
 from photonsim.geometry import Slab
 from photonsim.materials import get_material
 from photonsim.result import Result
@@ -50,6 +51,15 @@ def simulate(slab: Slab, energy_mev: float, n_photons: int, seed: int | None = N
     The same ``seed`` always gives the same ``Result``. Raises ``ValueError`` for an invalid
     slab, an energy outside a layer material's data range, or ``n_photons < 1``.
     """
+    result = run_simulation(slab, energy_mev, n_photons, seed)
+    _provenance.recorder().record("simulate", slab, energy_mev, int(n_photons), seed, result)
+    return result
+
+
+def run_simulation(
+    slab: Slab, energy_mev: float, n_photons: int, seed: int | None = None
+) -> Result:
+    """``simulate`` without provenance recording (callers record the call themselves)."""
     if not isinstance(slab, Slab):
         raise ValueError(
             f"slab must be a Slab([Layer(material, thickness_cm), ...]), got {type(slab).__name__}"

@@ -170,6 +170,7 @@ plan in [data/bench_plan_v2.json](data/bench_plan_v2.json) (seeds and the held-o
 | `make test` / `make test-docker` / `make cov` | test suite / Docker isolation tests only / coverage |
 | `make sandbox-image` | build the `simagent-sandbox` image |
 | `make eval-smoke` | 3-task evaluation with the fake provider (harness check, as in CI) |
+| `make eval-smoke-v2` | fake provider, 3 tasks x 2 seeds x 2 modes on both task sets, then `scripts/stats_v2.py` (as in CI) |
 | `make bench` / `make bench-status` | run the v2 benchmark plan resumably and promote complete runs / show progress and ETA |
 | `make report` | regenerate `docs/eval_results.md`, the chart and the README results block |
 | `make api-doc` / `make graph-doc` / `make materials` | regenerate `docs/api.md` / `docs/graph.mmd` / the NIST material table |

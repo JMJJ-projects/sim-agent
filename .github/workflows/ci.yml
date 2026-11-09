@@ -50,3 +50,5 @@ jobs:
         run: pytest -q -m docker -rs
       - name: Evaluation smoke run (fake provider, 3 tasks; proves the harness, claims no accuracy)
         run: make eval-smoke
+      - name: v2 statistics pipeline (fake provider, 3 tasks x 2 seeds x 2 modes, both task sets)
+        run: make eval-smoke-v2

@@ -18,21 +18,30 @@ this section and are not redone.
   Docker sandbox; tests for the category mix, near-duplicates vs dev (Jaccard < 0.6, max 0.54),
   the four ambiguity modes, and that every checker accepts its own reference (dev and held-out).
   415 tests pass with Docker required. Authoring checks are in `NOTES.md`.
-- **Tag:** annotated `heldout-frozen` created **locally** on `8c7f1fe` (not pushed).
-
-### CHECKPOINT A (now)
-
-Waiting for the user to review the 24 held-out prompts. Changes are allowed only now, before
-the tag is pushed; after approval the set is frozen for good (R-HO-4/5).
+- **Tag:** annotated `heldout-frozen` on `8c7f1fe`; CHECKPOINT A approved by the user with one
+  prompt rewording (ho_compare_01); commits and tag pushed by the user, CI green.
+- **Phase 2 (R-STAT-1..7):**
+  - Results headers: sampling settings, task set, Ollama digest/quantisation, code commit;
+    resuming a file with different settings is refused (`d831c17`). Groq now gets the seed.
+  - `evaluate.py --seeds --task-set {dev,heldout,all} --temperature` (default 0.7); one file
+    per (config, task set, seed) under `results/v2/`, prompt version kept in the name (`a318e09`).
+  - `stats.py`: bootstrap CIs over tasks, paired differences, exact McNemar (checked against
+    Fagerland et al. 2013, Table 6), pass^k counts, R-STAT-6 wording (`649f8c5`).
+  - `bench.py` + `data/bench_plan_v2.json` (blocks 6.1, 6.2; 6.3 added at Phase 6 after the
+    tag check) with per-file progress and ETA (`027ff60`).
+  - `scripts/stats_v2.py` + `make eval-smoke-v2` in CI: fake provider, 3 tasks x 2 seeds x
+    2 modes on both sets, then stats (`e8b135f`, `ff9f920`). Ran locally through Docker.
+  - 463 tests pass with Docker required. CI for Phase 2 not seen yet (not pushed; next push
+    point is CHECKPOINT B).
 
 ### Next
 
-- Phase 2: sampling settings in results headers, `--seeds` / `--task-set` in `evaluate.py`,
-  `stats.py` (bootstrap CIs, paired tests, McNemar, pass^k), `bench.py` v2 plan, CI smoke.
+- Phase 3: provenance trace (photonsim recorder, trace from the sandbox, R-POL-6, forging test,
+  expected values regenerated with traces).
 
 ### Open questions
 
-- Do the held-out prompts read like real user questions, and do any look like copies of dev tasks?
+- None.
 
 ---
 

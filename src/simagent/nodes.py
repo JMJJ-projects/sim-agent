@@ -99,6 +99,7 @@ def _run_dict(run: RunResult) -> dict[str, Any]:
         "result_error": run.result_error,
         "files": run.files,
         "warnings": run.warnings,
+        "trace": run.trace,
     }
 
 

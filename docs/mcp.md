@@ -25,7 +25,7 @@ Two ways to use it:
 ## Prerequisites
 
 1. `pip install -e ".[ollama]"` in the project's virtual environment.
-2. Docker running and the sandbox image built: `docker build -f sandbox/Dockerfile -t simagent-sandbox .`
+2. Docker running and the sandbox image built: `docker build -f sandbox/Dockerfile -t simagent-sandbox:2 .`
 3. `simagent doctor` shows docker and the sandbox image as ok. For `solve` with Ollama, the
    model must be pulled (`ollama pull qwen2.5-coder:3b`).
 

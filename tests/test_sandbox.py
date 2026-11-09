@@ -305,3 +305,26 @@ def test_malicious_script_contained_with_policy_disabled() -> None:
         "uid": "10001",
         "host_paths_visible": False,
     }
+
+
+def test_sandbox_returns_the_provenance_trace() -> None:
+    """Covers R-TRACE-1: the image turns recording on; every simulate/sweep call comes back."""
+    res = run(
+        """
+        import simagent_io
+        import photonsim as ps
+        r = ps.simulate(ps.Slab([ps.Layer("lead", 2.0)]), 1.0, 1000, seed=1)
+        ps.sweep(lambda t: ps.Slab([ps.Layer("water", t)]), [1, 2], 0.5, 100, seed=2)
+        simagent_io.submit(r.transmitted)
+        """
+    )
+    assert res.ok, res.stderr
+    assert res.trace is not None
+    calls = res.trace["calls"]
+    assert [(c["source"], c["layers"]) for c in calls] == [
+        ("simulate", [["lead", 2.0]]),
+        ("sweep", [["water", 1.0]]),
+        ("sweep", [["water", 2.0]]),
+    ]
+    assert calls[0]["transmitted"] == answer(res)
+    assert res.trace["truncated"] is False

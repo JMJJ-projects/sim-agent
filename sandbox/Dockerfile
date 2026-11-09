@@ -1,18 +1,21 @@
 # Sandbox image for running generated simulation scripts (R-SBX-2, R-SBX-3).
-# Build from the repository root:  docker build -f sandbox/Dockerfile -t simagent-sandbox .
+# Build from the repository root:  docker build -f sandbox/Dockerfile -t simagent-sandbox:2 .
 #
 # Hardening that depends on `docker run` flags (no network, read-only root, tmpfs, limits,
 # cap-drop, no-new-privileges) is applied by DockerRunner; this image only provides a minimal,
 # pinned, non-root runtime.
 FROM python:3.12.16-slim-bookworm
 
+# PHOTONSIM_TRACE=1 turns on provenance recording (R-TRACE-1). It is set by the image, never by
+# the script: generated code has no access to os, and the policy rejects the recorder (R-POL-6).
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     MPLBACKEND=Agg \
     MPLCONFIGDIR=/tmp/matplotlib \
-    HOME=/tmp
+    HOME=/tmp \
+    PHOTONSIM_TRACE=1
 
 COPY sandbox/requirements.txt /tmp/requirements.txt
 RUN pip install --only-binary=:all: --no-deps -r /tmp/requirements.txt \

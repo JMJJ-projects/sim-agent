@@ -64,6 +64,9 @@ class LocalRunner(Runner):
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONIOENCODING": "utf-8",
             "MPLBACKEND": "Agg",
+            # Provenance recording, as the sandbox image sets it (set by the runner, never by
+            # the script).
+            "PHOTONSIM_TRACE": "1",
         }
         if sys.platform == "win32":
             env.update({k: os.environ[k] for k in _WINDOWS_KEEP if k in os.environ})
@@ -115,4 +118,5 @@ class LocalRunner(Runner):
             runner=self.name,
             warnings=[WARNING, *collected.warnings],
             files=collected.files,
+            trace=collected.trace,
         )

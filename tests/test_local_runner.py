@@ -68,3 +68,16 @@ def test_error_and_missing_result() -> None:
     none = runner.run("print(1)\n")
     assert none.exit_code == 0
     assert "no result submitted" in (none.failure or "")
+
+
+def test_local_runner_returns_the_trace() -> None:
+    """The local runner turns recording on like the sandbox image does (R-TRACE-1)."""
+    code = (
+        "import simagent_io\nimport photonsim as ps\n"
+        "r = ps.simulate(ps.Slab([ps.Layer('water', 4.0)]), 0.5, 100, seed=1)\n"
+        "simagent_io.submit(r.transmitted)\n"
+    )
+    res = LocalRunner(enabled=True).run(code)
+    assert res.ok
+    assert res.trace is not None
+    assert [c["layers"] for c in res.trace["calls"]] == [[["water", 4.0]]]

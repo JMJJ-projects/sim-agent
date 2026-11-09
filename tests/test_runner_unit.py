@@ -272,3 +272,42 @@ def test_run_flow_oom_hint(stub: Stub) -> None:
     res = DockerRunner().run("print(1)\n", timeout_s=20)
     assert res.exit_code == 137
     assert "memory limit" in res.stderr
+
+
+def test_launcher_envelope_carries_the_trace(tmp_path: Path) -> None:
+    """Covers R-TRACE-1: trace.json travels from /out to RunResult via the envelope."""
+    (tmp_path / "result.json").write_text('{"answer": 1}', encoding="utf-8")
+    trace = {"version": 1, "n_calls": 1, "truncated": False, "calls": [{"energy_mev": 1.0}]}
+    (tmp_path / "trace.json").write_text(json.dumps(trace), encoding="utf-8")
+    got = base.from_envelope(launch.envelope(tmp_path))
+    assert got.trace == trace
+    assert got.warnings == []
+    assert base.from_envelope(launch.envelope(tmp_path / "missing")).trace is None
+
+
+@pytest.mark.parametrize(
+    ("trace_text", "too_large", "message"),
+    [
+        ("{bad", None, "not valid JSON"),
+        ('{"calls": 3}', None, "'calls' list"),
+        ("[1]", None, "'calls' list"),
+        (None, 5_000_000, "larger than"),
+    ],
+)
+def test_bad_traces_become_warnings(
+    trace_text: str | None, too_large: int | None, message: str
+) -> None:
+    env = {"result_text": '{"answer": 1}', "trace_text": trace_text, "trace_too_large": too_large}
+    got = base.from_envelope(env)
+    assert got.result == {"answer": 1}  # a bad trace never breaks the run itself
+    assert got.trace is None
+    assert message in got.warnings[0]
+
+
+def test_launcher_caps_the_trace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Covers R-TRACE-2: the trace's size is bounded like the result."""
+    monkeypatch.setattr(launch, "MAX_TRACE_BYTES", 10)
+    (tmp_path / "trace.json").write_text('{"calls": [1, 2, 3, 4, 5]}', encoding="utf-8")
+    env = launch.envelope(tmp_path)
+    assert env["trace_text"] is None
+    assert env["trace_too_large"] == 26

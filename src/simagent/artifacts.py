@@ -3,7 +3,8 @@
 Layout::
 
     runs/20261107T101500Z-3fa2c1/
-      attempt_1/reply.md, script.py, stdout.txt, stderr.txt, result.json, files/*.png
+      attempt_1/reply.md, script.py, stdout.txt, stderr.txt, result.json, files/*.png,
+                provenance.json (photonsim's record of what ran, R-TRACE-1)
       attempt_2/...
       final.json     the final answer
       trace.json     request, settings, per-attempt outcome, timings and token counts
@@ -66,6 +67,8 @@ class ArtifactWriter(AttemptHook):
             _write(d / "stderr.txt", run["stderr"])
             if run["result"] is not None:
                 _json(d / "result.json", run["result"])
+            if run.get("trace") is not None:
+                _json(d / "provenance.json", run["trace"])
             for name, b64 in (run.get("files") or {}).items():
                 safe = _safe_name(name)
                 if safe is None:

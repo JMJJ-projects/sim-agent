@@ -27,7 +27,9 @@ from simagent.runners.base import (
     split_output,
 )
 
-IMAGE = "simagent-sandbox"
+# Bump the tag whenever the image contents change, so a stale image fails fast ("not built")
+# instead of running old code. 2: provenance recording (PHOTONSIM_TRACE=1, trace.json).
+IMAGE = "simagent-sandbox:2"
 SANDBOX_UID = 10001
 # Keep enough raw stdout to recover the launcher envelope printed after the script's output:
 # result.json (<= 1 MB) plus base64 PNGs (<= 1 MB raw, ~1.34 MB encoded) plus slack.
@@ -189,6 +191,7 @@ class DockerRunner(Runner):
             runner=self.name,
             warnings=collected.warnings,
             files=collected.files,
+            trace=collected.trace,
         )
 
     @staticmethod

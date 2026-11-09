@@ -22,7 +22,7 @@ cov:
 check: lint test
 
 sandbox-image:
-	docker build -f sandbox/Dockerfile -t simagent-sandbox .
+	docker build -f sandbox/Dockerfile -t simagent-sandbox:2 .
 
 bench:
 	python scripts/bench.py run

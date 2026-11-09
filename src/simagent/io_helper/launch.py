@@ -5,6 +5,7 @@ process with inherited stdout/stderr, then prints one JSON envelope after a mark
 contains the per-run nonce given as ``argv[1]``::
 
     {"result_text": <result.json content or null>, "result_too_large": <bytes or null>,
+     "trace_text": <trace.json content or null>, "trace_too_large": <bytes or null>,
      "files": {"plot.png": "<base64>", ...}, "skipped_files": ["big.png", ...]}
 
 Only PNG files directly in ``/out`` are returned, smallest first, at most ``MAX_FILES_BYTES``
@@ -24,6 +25,7 @@ from pathlib import Path
 MARKER = "<<<SIMAGENT_RESULT:"
 MAX_RESULT_BYTES = 1_000_000
 MAX_FILES_BYTES = 1_000_000
+MAX_TRACE_BYTES = 1_000_000
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 OUT_DIR = Path("/out")
 SCRIPT = Path("/sandbox/script.py")
@@ -52,21 +54,26 @@ def collect_pngs(out_dir: Path, budget: int = MAX_FILES_BYTES) -> tuple[dict[str
     return files, sorted(skipped)
 
 
+def read_capped(path: Path, limit: int) -> tuple[str | None, int | None]:
+    """(text, None), or (None, size) when larger than ``limit``; (None, None) if absent."""
+    if not path.is_file() or path.is_symlink():
+        return None, None
+    size = path.stat().st_size
+    if size > limit:
+        return None, size
+    return path.read_text(encoding="utf-8", errors="replace"), None
+
+
 def envelope(out_dir: Path) -> dict[str, object]:
     """The JSON envelope describing what the script left in ``out_dir``."""
-    result = out_dir / "result.json"
-    text: str | None = None
-    too_large: int | None = None
-    if result.is_file() and not result.is_symlink():
-        size = result.stat().st_size
-        if size > MAX_RESULT_BYTES:
-            too_large = size
-        else:
-            text = result.read_text(encoding="utf-8", errors="replace")
+    text, too_large = read_capped(out_dir / "result.json", MAX_RESULT_BYTES)
+    trace_text, trace_too_large = read_capped(out_dir / "trace.json", MAX_TRACE_BYTES)
     files, skipped = collect_pngs(out_dir)
     return {
         "result_text": text,
         "result_too_large": too_large,
+        "trace_text": trace_text,
+        "trace_too_large": trace_too_large,
         "files": files,
         "skipped_files": skipped,
     }

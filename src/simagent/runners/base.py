@@ -49,6 +49,8 @@ class RunResult:
     runner: str = ""
     warnings: list[str] = field(default_factory=list)
     files: dict[str, str] = field(default_factory=dict)
+    trace: dict[str, Any] | None = None
+    """photonsim's provenance record (R-TRACE-1); None when absent or unreadable."""
 
     @property
     def ok(self) -> bool:
@@ -125,19 +127,24 @@ class TailReader:
 
 @dataclass(frozen=True)
 class Collected:
-    """What a run left behind: the parsed result.json and small PNG files (base64)."""
+    """What a run left behind: result.json, the provenance trace and small PNGs (base64)."""
 
     result: dict[str, Any] | None = None
     error: str | None = None
     files: dict[str, str] = field(default_factory=dict)
     skipped_files: list[str] = field(default_factory=list)
+    trace: dict[str, Any] | None = None
+    trace_error: str | None = None
 
     @property
     def warnings(self) -> list[str]:
-        if not self.skipped_files:
-            return []
-        names = ", ".join(self.skipped_files)
-        return [f"files in /out not returned (not PNG, or over the 1 MB total): {names}"]
+        out = []
+        if self.skipped_files:
+            names = ", ".join(self.skipped_files)
+            out.append(f"files in /out not returned (not PNG, or over the 1 MB total): {names}")
+        if self.trace_error:
+            out.append(f"provenance trace unavailable: {self.trace_error}")
+        return out
 
 
 def split_output(stdout: str, nonce: str) -> tuple[str, Collected | None]:
@@ -161,19 +168,42 @@ def parse_envelope(text: str) -> Collected:
     return from_envelope(env)
 
 
+def parse_trace(env: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    """The provenance trace from an envelope: (trace, error). Absent is not an error."""
+    if env.get("trace_too_large"):
+        return None, f"trace.json is larger than {MAX_RESULT_BYTES} bytes"
+    text = env.get("trace_text")
+    if not isinstance(text, str):
+        return None, None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return None, f"trace.json is not valid JSON: {exc.msg}"
+    if not isinstance(data, dict) or not isinstance(data.get("calls"), list):
+        return None, "trace.json must be an object with a 'calls' list"
+    return data, None
+
+
 def from_envelope(env: dict[str, Any]) -> Collected:
     """Build ``Collected`` from an envelope dict."""
     files_raw = env.get("files") or {}
     files = {str(k): str(v) for k, v in files_raw.items()} if isinstance(files_raw, dict) else {}
     skipped = [str(x) for x in env.get("skipped_files") or []]
+    trace, trace_error = parse_trace(env)
+    extra: dict[str, Any] = {
+        "files": files,
+        "skipped_files": skipped,
+        "trace": trace,
+        "trace_error": trace_error,
+    }
     if env.get("result_too_large"):
         error: str | None = f"result.json is larger than {MAX_RESULT_BYTES} bytes"
-        return Collected(error=error, files=files, skipped_files=skipped)
+        return Collected(error=error, **extra)
     text = env.get("result_text")
     if not isinstance(text, str):
-        return Collected(files=files, skipped_files=skipped)
+        return Collected(**extra)
     result, error = parse_result(text)
-    return Collected(result=result, error=error, files=files, skipped_files=skipped)
+    return Collected(result=result, error=error, **extra)
 
 
 def parse_result(text: str) -> tuple[dict[str, Any] | None, str | None]:

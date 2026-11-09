@@ -234,3 +234,22 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   The paper defines the two-sided exact conditional p-value as twice the one-sided tail (1.0
   when the discordant counts are equal). Wikipedia quotes the second value as 0.053, which is the
   paper's rounded in-text value, not a different result.
+
+## Provenance trace (v2 Phase 3)
+
+- `photonsim._provenance` records each `simulate()` call and each `sweep()` point only when
+  `PHOTONSIM_TRACE=1` is in the environment at import. The sandbox image sets it (`ENV`); the
+  launcher runs the script with `python -I`, which ignores `PYTHON*` variables only, so the flag
+  survives. `LocalRunner` also sets it, so offline tests get traces (dev only, no isolation).
+- `simagent_io.submit()` writes `trace.json` **before** `result.json`, replacing any file the
+  script wrote there. The launcher returns it in the envelope (capped at 1 MB like the result);
+  a missing or bad trace is a warning, never a failed run. Attempts save it as
+  `attempt_N/provenance.json` (`trace.json` was already taken by the run log).
+- **What this does and does not protect:** with the policy on, generated code cannot reach `os`
+  or the recorder (R-POL-6), so the trace is the simulator's record. With the policy disabled,
+  the script controls its own process: overwriting at `submit()` defeats a fake file written
+  before `submit()` (the R-TRACE-3 test), but a script could still rewrite `/out` after `submit()`
+  or alter the recorder in memory. It could equally forge `result.json`, so this is the same trust
+  boundary as v1: the policy is the defence, the sandbox limits the damage.
+- Image tag bumped to `simagent-sandbox:2` so a stale image without tracing fails fast ("not
+  built") instead of silently returning no trace.

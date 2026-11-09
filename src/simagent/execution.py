@@ -41,6 +41,7 @@ class Execution:
                 "stderr": run.stderr,
                 "files": dict(run.files) if include_files else sorted(run.files),
                 "warnings": run.warnings,
+                "trace": run.trace,
             }
         return report
 

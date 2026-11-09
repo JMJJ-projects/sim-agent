@@ -68,3 +68,53 @@ def test_size_limit(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_none_and_bool_pass_through(out_dir: Path) -> None:
     simagent_io.submit(None, flag=True)
     assert _read(out_dir) == {"answer": None, "data": {"flag": True}}
+
+
+@pytest.fixture
+def tracing(monkeypatch: pytest.MonkeyPatch) -> Any:
+    from photonsim import _provenance
+
+    monkeypatch.setenv(simagent_io.TRACE_FLAG, "1")
+    _provenance.reset(enabled=True)
+    yield _provenance
+    _provenance.reset(enabled=False)
+
+
+def test_submit_writes_the_trace_beside_the_result(out_dir: Path, tracing: Any) -> None:
+    """Covers R-TRACE-1: submit() writes photonsim's record to trace.json."""
+    res = p.simulate(p.Slab([p.Layer("lead", 2.0)]), 1.0, 200, seed=3)
+    simagent_io.submit(res.transmitted)
+    trace = json.loads((out_dir / "trace.json").read_text(encoding="utf-8"))
+    assert trace["n_calls"] == 1
+    assert trace["calls"][0]["layers"] == [["lead", 2.0]]
+    assert trace["calls"][0]["transmitted"] == res.transmitted
+    assert not (out_dir / "trace.json.tmp").exists()
+
+
+def test_submit_replaces_a_trace_written_by_the_script(out_dir: Path, tracing: Any) -> None:
+    """Covers R-TRACE-3: a fake trace.json written before submit() is overwritten."""
+    out_dir.mkdir(parents=True)
+    fake = {"calls": [{"layers": [["water", 1.0]], "energy_mev": 1.0}]}
+    (out_dir / "trace.json").write_text(json.dumps(fake), encoding="utf-8")
+    p.simulate(p.Slab([p.Layer("iron", 3.0)]), 2.0, 100, seed=1)
+    simagent_io.submit(1)
+    trace = json.loads((out_dir / "trace.json").read_text(encoding="utf-8"))
+    assert [c["layers"] for c in trace["calls"]] == [[["iron", 3.0]]]
+
+
+def test_no_trace_when_recording_is_off(out_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(simagent_io.TRACE_FLAG, raising=False)
+    simagent_io.submit(1)
+    assert not (out_dir / "trace.json").exists()
+
+
+def test_empty_trace_when_photonsim_was_never_imported(
+    out_dir: Path, tracing: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    monkeypatch.delitem(sys.modules, "photonsim._provenance")
+    simagent_io.submit(None, error="nothing to simulate")
+    trace = json.loads((out_dir / "trace.json").read_text(encoding="utf-8"))
+    assert trace["calls"] == []
+    assert trace["n_calls"] == 0

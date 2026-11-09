@@ -32,7 +32,15 @@ class CannedRunner(Runner):
             "broken.png": "%%%not-base64",
         }
         return RunResult(
-            0, "T=0.3\n", "", {"answer": 0.3, "data": {}}, False, 0.3, runner="canned", files=files
+            0,
+            "T=0.3\n",
+            "",
+            {"answer": 0.3, "data": {}},
+            False,
+            0.3,
+            runner="canned",
+            files=files,
+            trace={"calls": [{"energy_mev": 1.0}]},
         )
 
 
@@ -58,6 +66,9 @@ def test_artifacts_written_per_attempt(tmp_path: Path) -> None:
     assert "exited with code 1" in (a1 / "error.txt").read_text(encoding="utf-8")
     assert not (a1 / "result.json").exists()
     assert json.loads((a2 / "result.json").read_text(encoding="utf-8"))["answer"] == 0.3
+    provenance = json.loads((a2 / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance == {"calls": [{"energy_mev": 1.0}]}  # R-TRACE-1: saved with the attempt
+    assert not (a1 / "provenance.json").exists()
     assert (a2 / "stdout.txt").read_text(encoding="utf-8") == "T=0.3\n"
     assert (a2 / "reply.md").read_text(encoding="utf-8").startswith("Second.")
     assert sorted(p.name for p in (a2 / "files").iterdir()) == ["plot.png"]

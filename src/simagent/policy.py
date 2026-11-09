@@ -1,4 +1,10 @@
-"""Static AST allow-list check for generated code (R-POL-1 to R-POL-4).
+"""Static AST allow-list check for generated code (R-POL-1 to R-POL-4, R-POL-6).
+
+R-POL-6 keeps the provenance trace honest (R-TRACE-3): photonsim may only be used through its
+public API (so nothing can simulate without being recorded), the recorder's internals cannot be
+named, imported modules and imported names cannot be patched (attribute assignment, ``del``,
+``setattr``/``delattr``), and a module bound by ``import`` may only be used as ``module.attr``
+(so it cannot be aliased or passed into a function to patch it there).
 
 The policy runs before any execution. It is defence in depth: the sandbox (R-SBX-3) must hold
 even when the policy is bypassed (R-POL-5). Violations are phrased so that they can be fed back
@@ -9,7 +15,10 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
+
+import photonsim
 
 ALLOWED_MODULES: frozenset[str] = frozenset(
     {
@@ -93,6 +102,12 @@ _PROCESS_ATTRIBUTE = re.compile(
 
 ALLOWED_DUNDER_NAMES: frozenset[str] = frozenset({"__name__"})
 
+# R-POL-6: the only photonsim names generated code may use, and the recorder's internals.
+PHOTONSIM_API: frozenset[str] = frozenset(photonsim.__all__)
+RECORDER_NAMES: frozenset[str] = frozenset(
+    {"_provenance", "RECORDER", "_Recorder", "run_simulation"}
+)
+
 _DUNDER = re.compile(r"^__\w+__$")
 _FORMAT_DUNDER = re.compile(r"\{[^{}]*\.__\w+__")
 
@@ -149,9 +164,74 @@ def _module_allowed(name: str) -> bool:
     return name in ALLOWED_MODULES
 
 
+def _root_name(node: ast.AST) -> str | None:
+    """``a`` for ``a``, ``a.b``, ``a.b.c``; None for anything else (calls, subscripts, ...)."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _target_nodes(target: ast.AST) -> Iterator[ast.AST]:
+    """Every node bound by an assignment target, unpacking tuples, lists and starred names."""
+    if isinstance(target, ast.Tuple | ast.List):
+        for elt in target.elts:
+            yield from _target_nodes(elt)
+    elif isinstance(target, ast.Starred):
+        yield from _target_nodes(target.value)
+    else:
+        yield target
+
+
+@dataclass
+class _Names:
+    """Names bound by imports, found before checking (R-POL-6)."""
+
+    modules: set[str] = field(default_factory=set)  # bound by `import x [as y]`
+    photonsim: set[str] = field(default_factory=set)  # names bound to the photonsim package
+    imported: set[str] = field(default_factory=set)  # modules, from-imports, module attributes
+
+    @classmethod
+    def collect(cls, tree: ast.AST) -> _Names:
+        names = cls()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    bound = alias.asname or alias.name.split(".")[0]
+                    names.modules.add(bound)
+                    if alias.name.split(".")[0] == "photonsim" and (
+                        alias.asname is None or alias.name == "photonsim"
+                    ):
+                        names.photonsim.add(bound)
+            elif isinstance(node, ast.ImportFrom):
+                names.imported.update(a.asname or a.name for a in node.names)
+        names.imported |= names.modules
+        # Names assigned from an imported name or its attribute chain (``r = np.random``, ``b = r``)
+        # refer to the same objects: treat them as imported too, until nothing changes.
+        changed = True
+        while changed:
+            changed = False
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign | ast.AnnAssign) and node.value is not None:
+                    value = node.value
+                    root = (
+                        _root_name(value) if isinstance(value, ast.Attribute | ast.Name) else None
+                    )
+                    if root not in names.imported:
+                        continue
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    for target in targets:
+                        for item in _target_nodes(target):
+                            if isinstance(item, ast.Name) and item.id not in names.imported:
+                                names.imported.add(item.id)
+                                changed = True
+        return names
+
+
 class _Checker(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, names: _Names | None = None) -> None:
         self.violations: list[Violation] = []
+        self.names = names or _Names()
+        self._attribute_bases: set[int] = set()  # id() of Name nodes used as `name.attr`
 
     def _add(self, node: ast.AST, message: str) -> None:
         self.violations.append(Violation(getattr(node, "lineno", None), message))
@@ -179,6 +259,10 @@ class _Checker(ast.NodeVisitor):
                 self._add(node, f"`from {module} import *` is not allowed; import names explicitly")
             elif forbidden_attribute(alias.name) or _DUNDER.match(alias.name):
                 self._add(node, f"importing `{alias.name}` from `{module}` is not allowed")
+            elif alias.name in RECORDER_NAMES:
+                self._add(node, _recorder_message(alias.name))
+            elif module == "photonsim" and alias.name not in PHOTONSIM_API:
+                self._add(node, _api_message(alias.name))
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -204,19 +288,41 @@ class _Checker(ast.NodeVisitor):
     def _check_attribute_builtin(self, node: ast.Call, name: str) -> None:
         if len(node.args) < 2:
             return
-        attr = node.args[1]
+        obj, attr = node.args[0], node.args[1]
+        root = _root_name(obj)
+        if name in {"setattr", "delattr"} and root in self.names.imported:
+            self._add(node, _patch_message(root))
+            return
         if not (isinstance(attr, ast.Constant) and isinstance(attr.value, str)):
             self._add(
                 node, f"`{name}()` needs a literal attribute name; use normal attribute access"
             )
         elif _DUNDER.match(attr.value) or forbidden_attribute(attr.value):
             self._add(node, f"`{name}()` on `{attr.value}` is not allowed")
+        elif attr.value in RECORDER_NAMES:
+            self._add(node, _recorder_message(attr.value))
+        elif (
+            isinstance(obj, ast.Name)
+            and obj.id in self.names.photonsim
+            and attr.value not in PHOTONSIM_API
+        ):
+            self._add(node, _api_message(attr.value))
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
+        if isinstance(node.value, ast.Name):
+            self._attribute_bases.add(id(node.value))
         if _DUNDER.match(node.attr) and node.attr not in ALLOWED_DUNDER_NAMES:
             self._add(node, f"access to dunder attribute `{node.attr}` is not allowed")
         elif reason := forbidden_attribute(node.attr):
             self._add(node, reason)
+        elif node.attr in RECORDER_NAMES:
+            self._add(node, _recorder_message(node.attr))
+        elif (
+            isinstance(node.value, ast.Name)
+            and node.value.id in self.names.photonsim
+            and node.attr not in PHOTONSIM_API
+        ):
+            self._add(node, _api_message(node.attr))
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
@@ -225,10 +331,77 @@ class _Checker(ast.NodeVisitor):
         elif node.id in FORBIDDEN_CALLS | ATTRIBUTE_BUILTINS:
             # e.g. `f = eval` or passing `open` around; direct calls are handled in visit_Call.
             self._add(node, f"use of `{node.id}` is not allowed")
+        elif node.id in RECORDER_NAMES:
+            self._add(node, _recorder_message(node.id))
+        elif (
+            isinstance(node.ctx, ast.Load)
+            and node.id in self.names.modules
+            and id(node) not in self._attribute_bases
+        ):
+            self._add(
+                node,
+                f"module `{node.id}` may only be used as `{node.id}.<name>`; "
+                "do not store it, pass it to a function or alias it",
+            )
+
+    # R-POL-6: no patching of imported modules or imported names.
+    def _check_targets(self, targets: list[ast.expr]) -> None:
+        for target in targets:
+            for bound in _target_nodes(target):
+                # Item assignment (``plt.rcParams["font.size"] = 12``) is fine: it cannot
+                # replace a module's functions, and dunder access is rejected elsewhere.
+                if isinstance(bound, ast.Attribute):
+                    root = _root_name(bound.value)
+                    if root in self.names.imported:
+                        self._add(bound, _patch_message(root))
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self._check_targets(node.targets)
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self._check_targets([node.target])
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._check_targets([node.target])
+        self.generic_visit(node)
+
+    def visit_Delete(self, node: ast.Delete) -> None:
+        self._check_targets(node.targets)
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        self._check_targets([node.target])
+        self.generic_visit(node)
+
+    def visit_comprehension(self, node: ast.comprehension) -> None:
+        self._check_targets([node.target])
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        self._check_targets([i.optional_vars for i in node.items if i.optional_vars is not None])
+        self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:
         if isinstance(node.value, str) and _FORMAT_DUNDER.search(node.value):
             self._add(node, "format strings that access dunder attributes are not allowed")
+
+
+def _api_message(name: str) -> str:
+    api = ", ".join(sorted(PHOTONSIM_API))
+    return f"`{name}` is not part of the photonsim API; use only: {api}"
+
+
+def _recorder_message(name: str) -> str:
+    return f"`{name}` is internal to photonsim's provenance recorder and may not be used"
+
+
+def _patch_message(root: str) -> str:
+    return (
+        f"modifying `{root}` is not allowed: imported modules and imported names may not be "
+        "patched (no attribute assignment, del, setattr or delattr)"
+    )
 
 
 def check(code: str) -> PolicyResult:
@@ -240,7 +413,7 @@ def check(code: str) -> PolicyResult:
         return PolicyResult([Violation(exc.lineno, f"SyntaxError: {msg}")])
     except ValueError as exc:  # e.g. null bytes in the source
         return PolicyResult([Violation(None, f"the script could not be parsed: {exc}")])
-    checker = _Checker()
+    checker = _Checker(_Names.collect(tree))
     checker.visit(tree)
     unique = list(dict.fromkeys(checker.violations))
     return PolicyResult(sorted(unique, key=lambda v: (v.line or 0, v.message)))

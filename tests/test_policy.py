@@ -38,7 +38,8 @@ def test_typical_script_passes() -> None:
 def test_each_allowed_module(module: str) -> None:
     """Covers R-POL-2."""
     assert check(f"import {module}\n").ok
-    assert check(f"from {module} import x\n").ok
+    name = "simulate" if module == "photonsim" else "x"  # photonsim: public API only (R-POL-6)
+    assert check(f"from {module} import {name}\n").ok
 
 
 @pytest.mark.parametrize(

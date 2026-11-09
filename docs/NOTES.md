@@ -332,3 +332,23 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   runs (mean latency per task) instead. Per-model memory from `/api/ps`: 3B uses 2137 MiB, 100 %
   on the GPU (nvidia-smi total 2229 MiB).
 - Disk: 12 GB free on C: when checked.
+
+## Candidate rule "extras as warnings": not adopted (2026-11-09, before any Phase 6 run)
+
+- **Rule tested (general, user's proposal):** if the trace covers every requested configuration
+  (every stated single thickness, energy and material, and every listed sweep value unless the
+  request is a search), then findings about unrequested extra simulations (V-ENERGY, V-LENGTH,
+  V-COUNT, V-MATERIAL) become warnings, and V-TRACE checks the answer against the matching calls.
+- **Acceptance condition (user):** adopt only if catches stay the same *and* the false alarms
+  go away.
+- **Re-score of the v1 replay** (all 188 answered v1 dev scripts replayed again in the sandbox,
+  both rules applied to the same replayed result and trace): current rule 19/44 wrong answers
+  caught, 4/144 false alarms; candidate rule 17/44 caught, 0/144 false alarms. The two lost
+  catches are both `qwen2.5-coder:1.5b` (prompt v2, repair): compare_02 (V-LENGTH) and search_02
+  (V-MATERIAL), wrong answers from scripts that simulated the requested configuration *and*
+  something else. The four removed false alarms are the API-example cases above.
+- **Decision: not adopted** (catches dropped). The verifier is unchanged; the candidate code
+  was not committed. The extra-simulation false alarms remain a known cost, to be measured
+  directly in the Phase 6 runs (false alarms per check, R-VER-7).
+- This replay counted 44 wrong answers, the committed replay 42: some v1 scripts set no seed, so
+  repeated replays differ. Both rules were scored on the same replay, so the comparison is fair.

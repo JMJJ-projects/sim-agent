@@ -4,24 +4,41 @@ from pathlib import Path
 
 import pytest
 
+from simagent.evaluation.checkers import CheckInput, run_checker
 from simagent.evaluation.expected import build_expected, load_expected, sha256
-from simagent.evaluation.tasks import Task, load_tasks
+from simagent.evaluation.tasks import TASK_SETS, Task, load_task_set
 from simagent.runners import DockerRunner
 from simagent.runners.base import RunResult
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_expected_matches_current_references() -> None:
-    """Regenerate with `python scripts/make_expected.py` if this fails."""
-    expected = load_expected(ROOT / "data" / "expected.json")
-    tasks = load_tasks(ROOT / "data" / "tasks.jsonl")
+@pytest.mark.parametrize("name", sorted(TASK_SETS))
+def test_expected_matches_current_references(name: str) -> None:
+    """Covers R-EV-3, R-HO-1. Regenerate with `python scripts/make_expected.py --task-set
+    <name>` if this fails."""
+    expected = load_expected(TASK_SETS[name].expected_path(ROOT))
+    tasks = load_task_set(name, ROOT)
     runnable = {t.id: t for t in tasks if t.runs_reference}
     assert set(expected["tasks"]) == set(runnable)
     assert expected["runner"] == "docker"
     for tid, entry in expected["tasks"].items():
         assert entry["reference_sha256"] == sha256(ROOT / runnable[tid].reference), tid
         assert "answer" in entry["result"]
+
+
+@pytest.mark.parametrize("name", sorted(TASK_SETS))
+def test_checkers_accept_their_own_reference(name: str) -> None:
+    """Every task's checker passes the reference result (or a refusal for .md references)."""
+    expected = load_expected(TASK_SETS[name].expected_path(ROOT))["tasks"]
+    for task in load_task_set(name, ROOT):
+        if task.runs_reference:
+            ref = expected[task.id]["result"]
+            candidate = CheckInput("solved", ref, executed=True)
+        else:
+            ref, candidate = None, CheckInput("refused", None, executed=False)
+        outcome = run_checker(task.checker, candidate, ref)
+        assert outcome.passed, f"{task.id}: {outcome.reason}"
 
 
 class FakeRunner(DockerRunner):

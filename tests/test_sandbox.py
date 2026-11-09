@@ -328,3 +328,53 @@ def test_sandbox_returns_the_provenance_trace() -> None:
     ]
     assert calls[0]["transmitted"] == answer(res)
     assert res.trace["truncated"] is False
+
+
+FORGED_TRACE_SCRIPT = """
+import json
+import simagent_io
+import photonsim as ps
+
+fake = {"version": 1, "n_calls": 1, "truncated": False, "calls": [
+    {"source": "simulate", "layers": [["water", 1.0]], "energy_mev": 1.0, "n_photons": 100,
+     "seed": 1, "transmitted": 0.5, "reflected": 0.1, "absorbed": 0.4,
+     "stderr_transmitted": 0.0, "stderr_reflected": 0.0, "stderr_absorbed": 0.0}]}
+with open("/out/trace.json", "w") as fh:
+    json.dump(fake, fh)
+r = ps.simulate(ps.Slab([ps.Layer("lead", 3.0)]), 2.0, 1000, seed=4)
+simagent_io.submit(0.5)
+"""
+
+
+def test_trace_cannot_be_forged_before_submit() -> None:
+    """Covers R-TRACE-3: with the policy disabled, a fake /out/trace.json written before
+    submit() is replaced by the recorder's trace; with the policy on, the script never runs."""
+    assert not check(FORGED_TRACE_SCRIPT).ok  # `open` is rejected by the policy
+    res = run(FORGED_TRACE_SCRIPT)  # the runner alone: policy bypassed
+    assert res.ok, res.stderr
+    assert res.trace is not None
+    calls = res.trace["calls"]
+    assert [(c["layers"], c["energy_mev"], c["seed"]) for c in calls] == [([["lead", 3.0]], 2.0, 4)]
+    assert answer(res) == 0.5  # the claimed answer is not backed by the trace
+
+
+def test_patched_simulate_leaves_no_trace_entry() -> None:
+    """Covers R-TRACE-3: with the policy disabled, monkeypatching photonsim cannot add entries;
+    the fake call simply never reaches the recorder (and the policy rejects the patch)."""
+    code = """
+    import simagent_io
+    import photonsim as ps
+
+    class Fake:
+        transmitted = 0.123
+
+    ps.simulate = lambda *args, **kwargs: Fake()
+    r = ps.simulate(ps.Slab([ps.Layer("lead", 3.0)]), 2.0, 1000, seed=4)
+    simagent_io.submit(r.transmitted)
+    """
+    assert not check(textwrap.dedent(code)).ok
+    res = run(code)
+    assert res.ok, res.stderr
+    assert res.trace is not None
+    assert res.trace["calls"] == []
+    assert answer(res) == 0.123

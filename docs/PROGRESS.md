@@ -72,24 +72,30 @@ this section and are not redone.
 - **Phase 6.0:** per-model VRAM from Ollama `/api/ps` (`e22ffcc`); block 6.3 added to the plan
   with checked tags (`0e3c96c`). 713 tests pass with Docker required.
 
-### CHECKPOINT C (now): nothing real has been run except the timing probe
+### CHECKPOINT C decisions (user, 2026-11-09) and what was done
 
-- Facts (rate limits, tags, probe, disk): `docs/NOTES.md`, "CHECKPOINT C facts".
-- ETAs (from the full 36-task v1 runs; verify assumed ~1.3x repair): block 6.1 about 3-5 h;
-  block 6.2 at least 4.5 h of wall time (30 s delay) but about 6 days of Groq daily-token budget
-  if 200K TPD applies; block 6.3 unknown until the models are pulled (8 GB download, 12 GB free).
-- Waiting for the user's decisions (see the checkpoint message) and a push + green CI.
+- Groq: repair + verify only, seeds 0-1, spread over days (`bench.py run --units`), never at
+  the same time as a local block. Added: a daily-quota rate limit stops the run without
+  recording the task (`a7bd503`).
+- Disk: `docker image prune` (0 B reclaimed: no untagged images) and `ollama rm qwen2.5:3b`;
+  29 GB free afterwards, enough for block 6.3 (about 8 GB), so the 7B row stays. The old
+  `simagent-sandbox:latest` image (415 MB) is still there. The 6.3 models are **not** pulled:
+  waiting for the user's confirmation.
+- Block 6.1b added: 3B, prompt v2, repair, seeds 0-4, for the R-REF-1 v2-vs-v3 comparison.
+- Candidate rule "extras as warnings" re-scored on a fresh v1 replay: catches 19 -> 17, false
+  alarms 4 -> 0; **not adopted** (catches dropped), logged in NOTES.md (`ad5f8db`).
+- Plan now: 6.1 (60 files, 1800 tasks), 6.1b (10 files, 300), 6.2 (8 files, 240),
+  6.3 (12 files, 360): 2700 tasks.
 
 ### Next
 
-- Phase 6 runs, in the order the user approves; commit results per model as each finishes.
+- The user runs the blocks (commands in the checkpoint message); after each block,
+  `python scripts/bench.py promote`, then results are committed per model (one commit each).
+- Then 6.4 (completeness check), Phase 7 (report, analysis, README, release prep).
 
 ### Open questions
 
-- Groq daily token budget: spread block 6.2 over ~6 days, or reduce it?
-- Disk space for the 6.3 models; download go-ahead.
-- A like-for-like prompt v2 vs v3 comparison for R-REF-1?
-- The API-example false alarms: keep the checks as they are (current default)?
+- Confirmation to pull the two 6.3 models.
 
 ---
 

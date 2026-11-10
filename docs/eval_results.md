@@ -499,6 +499,12 @@ Every task outcome gets exactly one class from fixed rules over the recorded dat
 | qwen2.5-coder:3b (prompt v2) repair (v1, history) | 24 | 8 | 1 | 2 | 0 | 0 | 1 | 0 |
 | qwen2.5:3b (prompt v2) baseline (v1, history) | 17 | 1 | 0 | 15 | 2 | 1 | 0 | 0 |
 | qwen2.5:3b (prompt v2) repair (v1, history) | 19 | 3 | 2 | 9 | 1 | 2 | 0 | 0 |
+| qwen2.5-coder:1.5b (p3) baseline [dev] | 31 | 5 | 0 | 34 | 80 | 1 | 8 | 21 |
+| qwen2.5-coder:1.5b (p3) baseline [heldout] | 11 | 12 | 0 | 36 | 43 | 2 | 6 | 10 |
+| qwen2.5-coder:1.5b (p3) repair [dev] | 61 | 11 | 2 | 2 | 2 | 0 | 100 | 2 |
+| qwen2.5-coder:1.5b (p3) repair [heldout] | 27 | 19 | 0 | 4 | 2 | 0 | 68 | 0 |
+| qwen2.5-coder:1.5b (p3) verify [dev] | 59 | 8 | 2 | 3 | 2 | 0 | 105 | 1 |
+| qwen2.5-coder:1.5b (p3) verify [heldout] | 27 | 12 | 0 | 4 | 2 | 0 | 74 | 1 |
 | qwen2.5-coder:3b (p2) repair [dev] | 111 | 36 | 8 | 18 | 1 | 0 | 5 | 1 |
 | qwen2.5-coder:3b (p2) repair [heldout] | 58 | 34 | 11 | 13 | 0 | 2 | 2 | 0 |
 | qwen2.5-coder:3b (p3) baseline [dev] | 88 | 17 | 2 | 66 | 4 | 1 | 1 | 1 |
@@ -520,6 +526,12 @@ Exact classes:
 - qwen2.5-coder:3b (prompt v2) repair: `crash:TypeError` 1, `crash:ValueError` 1, `missed_error_report` 1, `not_refused` 1, `ok` 24, `wrong_answer:wrong_other` 8
 - qwen2.5:3b (prompt v2) baseline: `crash:AttributeError` 3, `crash:NameError` 6, `crash:TypeError` 1, `crash:ValueError` 5, `format` 2, `ok` 17, `policy` 1, `wrong_answer:wrong_other` 1
 - qwen2.5:3b (prompt v2) repair: `crash:AttributeError` 6, `crash:NameError` 1, `crash:TypeError` 1, `crash:ValueError` 1, `format` 1, `missed_error_report` 2, `ok` 19, `policy` 2, `wrong_answer:wrong_other` 3
+- qwen2.5-coder:1.5b (p3) baseline [dev]: `crash:AttributeError` 4, `crash:NameError` 12, `crash:TypeError` 5, `crash:ValueError` 13, `false_refusal` 5, `format` 80, `model_error` 1, `no_result` 20, `not_refused` 3, `ok` 31, `policy` 1, `wrong_answer:unit_mismatch` 2, `wrong_answer:wrong_other` 3
+- qwen2.5-coder:1.5b (p3) baseline [heldout]: `crash:AttributeError` 7, `crash:NameError` 9, `crash:RuntimeError` 1, `crash:TypeError` 5, `crash:ValueError` 14, `false_refusal` 4, `format` 43, `no_result` 10, `not_refused` 2, `ok` 11, `policy` 2, `wrong_answer:sweep_structure` 2, `wrong_answer:unit_mismatch` 3, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 6
+- qwen2.5-coder:1.5b (p3) repair [dev]: `crash:NameError` 1, `crash:TypeError` 1, `false_refusal` 96, `format` 2, `missed_error_report` 2, `model_error` 1, `no_result` 1, `not_refused` 4, `ok` 61, `wrong_answer:sweep_structure` 1, `wrong_answer:unit_mismatch` 3, `wrong_answer:wrong_other` 7
+- qwen2.5-coder:1.5b (p3) repair [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:ValueError` 1, `false_refusal` 68, `format` 2, `ok` 27, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 3, `wrong_answer:wrong_material` 2, `wrong_answer:wrong_other` 11
+- qwen2.5-coder:1.5b (p3) verify [dev]: `crash:NameError` 2, `crash:TypeError` 1, `false_refusal` 101, `format` 2, `missed_error_report` 2, `model_error` 1, `not_refused` 4, `ok` 59, `wrong_answer:wrong_other` 8
+- qwen2.5-coder:1.5b (p3) verify [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:ValueError` 1, `false_refusal` 74, `format` 2, `no_result` 1, `ok` 27, `wrong_answer:wrong_other` 12
 - qwen2.5-coder:3b (p2) repair [dev]: `crash:AttributeError` 2, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 4, `crash:ValueError` 7, `format` 1, `missed_error_report` 8, `model_error` 1, `not_refused` 5, `ok` 111, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 28
 - qwen2.5-coder:3b (p2) repair [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:TypeError` 2, `crash:Unknown` 1, `crash:ValueError` 7, `missed_error_report` 11, `not_refused` 2, `ok` 58, `policy` 2, `wrong_answer:sweep_structure` 7, `wrong_answer:unit_mismatch` 6, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 20
 - qwen2.5-coder:3b (p3) baseline [dev]: `crash:AttributeError` 7, `crash:NameError` 30, `crash:RuntimeError` 1, `crash:TypeError` 7, `crash:ValueError` 21, `format` 4, `missed_error_report` 2, `no_result` 1, `not_refused` 1, `ok` 88, `policy` 1, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 12

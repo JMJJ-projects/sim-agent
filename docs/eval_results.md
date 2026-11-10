@@ -499,6 +499,14 @@ Every task outcome gets exactly one class from fixed rules over the recorded dat
 | qwen2.5-coder:3b (prompt v2) repair (v1, history) | 24 | 8 | 1 | 2 | 0 | 0 | 1 | 0 |
 | qwen2.5:3b (prompt v2) baseline (v1, history) | 17 | 1 | 0 | 15 | 2 | 1 | 0 | 0 |
 | qwen2.5:3b (prompt v2) repair (v1, history) | 19 | 3 | 2 | 9 | 1 | 2 | 0 | 0 |
+| qwen2.5-coder:3b (p2) repair [dev] | 111 | 36 | 8 | 18 | 1 | 0 | 5 | 1 |
+| qwen2.5-coder:3b (p2) repair [heldout] | 58 | 34 | 11 | 13 | 0 | 2 | 2 | 0 |
+| qwen2.5-coder:3b (p3) baseline [dev] | 88 | 17 | 2 | 66 | 4 | 1 | 1 | 1 |
+| qwen2.5-coder:3b (p3) baseline [heldout] | 41 | 9 | 2 | 66 | 1 | 1 | 0 | 0 |
+| qwen2.5-coder:3b (p3) repair [dev] | 107 | 29 | 7 | 18 | 0 | 0 | 18 | 1 |
+| qwen2.5-coder:3b (p3) repair [heldout] | 55 | 25 | 11 | 14 | 0 | 1 | 14 | 0 |
+| qwen2.5-coder:3b (p3) verify [dev] | 112 | 21 | 6 | 21 | 0 | 0 | 19 | 1 |
+| qwen2.5-coder:3b (p3) verify [heldout] | 59 | 21 | 7 | 17 | 0 | 1 | 15 | 0 |
 
 Exact classes:
 
@@ -512,3 +520,11 @@ Exact classes:
 - qwen2.5-coder:3b (prompt v2) repair: `crash:TypeError` 1, `crash:ValueError` 1, `missed_error_report` 1, `not_refused` 1, `ok` 24, `wrong_answer:wrong_other` 8
 - qwen2.5:3b (prompt v2) baseline: `crash:AttributeError` 3, `crash:NameError` 6, `crash:TypeError` 1, `crash:ValueError` 5, `format` 2, `ok` 17, `policy` 1, `wrong_answer:wrong_other` 1
 - qwen2.5:3b (prompt v2) repair: `crash:AttributeError` 6, `crash:NameError` 1, `crash:TypeError` 1, `crash:ValueError` 1, `format` 1, `missed_error_report` 2, `ok` 19, `policy` 2, `wrong_answer:wrong_other` 3
+- qwen2.5-coder:3b (p2) repair [dev]: `crash:AttributeError` 2, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 4, `crash:ValueError` 7, `format` 1, `missed_error_report` 8, `model_error` 1, `not_refused` 5, `ok` 111, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 28
+- qwen2.5-coder:3b (p2) repair [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:TypeError` 2, `crash:Unknown` 1, `crash:ValueError` 7, `missed_error_report` 11, `not_refused` 2, `ok` 58, `policy` 2, `wrong_answer:sweep_structure` 7, `wrong_answer:unit_mismatch` 6, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 20
+- qwen2.5-coder:3b (p3) baseline [dev]: `crash:AttributeError` 7, `crash:NameError` 30, `crash:RuntimeError` 1, `crash:TypeError` 7, `crash:ValueError` 21, `format` 4, `missed_error_report` 2, `no_result` 1, `not_refused` 1, `ok` 88, `policy` 1, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 12
+- qwen2.5-coder:3b (p3) baseline [heldout]: `crash:AttributeError` 10, `crash:FrozenInstanceError` 2, `crash:NameError` 27, `crash:RuntimeError` 1, `crash:TypeError` 7, `crash:ValueError` 19, `format` 1, `missed_error_report` 2, `ok` 41, `policy` 1, `wrong_answer:sweep_structure` 1, `wrong_answer:unit_mismatch` 2, `wrong_answer:wrong_other` 6
+- qwen2.5-coder:3b (p3) repair [dev]: `crash:AttributeError` 2, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 5, `crash:ValueError` 6, `false_refusal` 12, `missed_error_report` 7, `no_result` 1, `not_refused` 6, `ok` 107, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 8, `wrong_answer:wrong_other` 18
+- qwen2.5-coder:3b (p3) repair [heldout]: `crash:AttributeError` 3, `crash:NameError` 3, `crash:RuntimeError` 1, `crash:TypeError` 3, `crash:ValueError` 4, `false_refusal` 13, `missed_error_report` 11, `not_refused` 1, `ok` 55, `policy` 1, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 16
+- qwen2.5-coder:3b (p3) verify [dev]: `crash:AttributeError` 4, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 5, `crash:ValueError` 7, `false_refusal` 14, `missed_error_report` 6, `no_result` 1, `not_refused` 5, `ok` 112, `wrong_answer:unit_mismatch` 1, `wrong_answer:wrong_other` 20
+- qwen2.5-coder:3b (p3) verify [heldout]: `crash:AttributeError` 3, `crash:NameError` 3, `crash:RuntimeError` 1, `crash:TypeError` 3, `crash:ValueError` 7, `false_refusal` 14, `missed_error_report` 7, `not_refused` 1, `ok` 59, `policy` 1, `wrong_answer:sweep_structure` 2, `wrong_answer:unit_mismatch` 2, `wrong_answer:wrong_other` 17

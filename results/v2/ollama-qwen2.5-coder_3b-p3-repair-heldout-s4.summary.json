@@ -1,0 +1,58 @@
+{
+  "provider": "ollama",
+  "model": "qwen2.5-coder:3b",
+  "mode": "repair",
+  "prompt_version": 3,
+  "max_attempts": 4,
+  "tasks": 24,
+  "passed": 5,
+  "success_rate": 0.20833333333333334,
+  "success_rate_by_category": {
+    "adversarial": 0.5,
+    "ambiguous_or_misleading": 0.0,
+    "compare": 0.0,
+    "multi_step": 0.25,
+    "search": 0.25,
+    "single_run": 0.6666666666666666,
+    "sweep": 0.0
+  },
+  "tasks_by_category": {
+    "adversarial": 2,
+    "ambiguous_or_misleading": 4,
+    "compare": 3,
+    "multi_step": 4,
+    "search": 4,
+    "single_run": 3,
+    "sweep": 4
+  },
+  "mean_attempts_solved": 1.0,
+  "repaired_successes": 0,
+  "status_solved_but_wrong": 8,
+  "status_solved_unverified": 0,
+  "verifier": {
+    "results_checked": 12,
+    "verifier_failed": 3,
+    "catches": 3,
+    "false_alarms": 0,
+    "misses": 5,
+    "failed_by_check": {
+      "V-ENERGY": 2,
+      "V-LENGTH": 2,
+      "V-UNKNOWN": 1
+    },
+    "false_alarms_by_check": {}
+  },
+  "policy_violations": 1,
+  "timeouts": 0,
+  "latency_median_s": 9.788499999999999,
+  "latency_p90_s": 14.893899999999999,
+  "ttft_median_s": 0.16409909999947558,
+  "tokens_per_s_median": 69.03820721680566,
+  "input_tokens_total": 75589,
+  "output_tokens_total": 11658,
+  "cost_usd_total": null,
+  "peak_vram_mib": 3828,
+  "model_size_mib": 2137,
+  "model_vram_mib": 2137,
+  "gpu_fraction": 1.0
+}

@@ -352,3 +352,24 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   directly in the Phase 6 runs (false alarms per check, R-VER-7).
 - This replay counted 44 wrong answers, the committed replay 42: some v1 scripts set no seed, so
   repeated replays differ. Both rules were scored on the same replay, so the comparison is fair.
+
+## Block 6.1 first start: Docker Desktop refused every container (2026-11-10)
+
+- **What happened:** `ollama-qwen2.5-coder_3b-p3-baseline-dev-s0` recorded its first 13 tasks
+  as `status failed, no result to check`. Every attempt's stderr was
+  `docker: Error response from daemon: Access is denied.` (exit 125, run_s about 0.08 s), so no
+  script ever ran. The model replies were normal.
+- **Where it came from:** the Docker Desktop backend log shows each `containers/create`
+  rejected on the Windows side within about 2 ms, before the bind-mount approval step that a
+  working create reaches. Docker Desktop had just been resumed from Resource Saver (idle 9 h,
+  resumed at 01:38 UTC; failures 01:39:43-01:40:58). The same message is reproduced exactly by
+  bind-mounting a directory that the user cannot read, so Docker Desktop could not read the
+  sandbox's temp script directory. The trigger is not pinned down: by 01:42 UTC the same image,
+  TEMP folder and code ran normally, and nothing in the Windows event logs covers it.
+- **Code defect (fixed in `fix(runner)`):** the runner returned exit 125 as the script's exit
+  code, and the harness's catch-all would have recorded even a `RunnerUnavailableError` as a
+  failed task, so `--resume` kept the bad rows. Now exit 125 without the launcher envelope raises
+  `RunnerUnavailableError`, and the harness stops the run without recording the task.
+- The bad results file was deleted (not committed); its artifacts stay in
+  `runs/bench/v2/artifacts` as evidence. Probe after the fix: 3B baseline, 3 dev tasks, 3/3
+  solved in the sandbox (`runs/probe-fix`).

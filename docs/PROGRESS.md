@@ -87,6 +87,14 @@ this section and are not redone.
 - Plan now: 6.1 (60 files, 1800 tasks), 6.1b (10 files, 300), 6.2 (8 files, 240),
   6.3 (12 files, 360): 2700 tasks.
 
+### Block 6.1 restart (2026-11-10)
+
+- First start of 6.1 failed on infrastructure: Docker Desktop answered "Access is denied." to
+  every container create, and the 13 tasks were recorded as model failures. Fixed in
+  `fix(runner)`: a sandbox that cannot start now stops the run without recording the task.
+  Bad results file deleted. Probe after the fix: 3B baseline, 3/3 dev tasks solved. Details in
+  NOTES.md.
+
 ### Next
 
 - The user runs the blocks (commands in the checkpoint message); after each block,

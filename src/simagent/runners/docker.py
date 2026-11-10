@@ -172,8 +172,17 @@ class DockerRunner(Runner):
             raise RunnerUnavailableError(
                 "the Docker daemon is not reachable; start Docker Desktop / dockerd"
             )
-        stdout, collected = split_output(raw_stdout, nonce)
-        collected = collected or Collected()
+        stdout, envelope = split_output(raw_stdout, nonce)
+        if exit_code == 125 and envelope is None and not timed_out:
+            # 125 is `docker run`'s own failure code. Without the launcher's nonce envelope the
+            # container never ran the script (the launcher always prints it, whatever the
+            # script's exit code), so this is the sandbox failing, e.g. Docker Desktop refusing
+            # the bind mount with "Access is denied". Never score it as the script's failure.
+            detail = stderr.strip().splitlines()[0] if stderr.strip() else "no error output"
+            raise RunnerUnavailableError(
+                f"docker could not start the sandbox container (exit 125): {detail}"
+            )
+        collected = envelope or Collected()
         if timed_out:
             stderr += f"\n[killed after the {timeout_s:g} s time limit]"
         elif exit_code == 137:

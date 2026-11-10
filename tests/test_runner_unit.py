@@ -212,6 +212,14 @@ elif mode == "nodaemon":
     sys.exit(1)
 elif mode == "oom":
     sys.exit(137)
+elif mode == "denied":  # Docker Desktop refusing the bind mount; no container ran
+    sys.stderr.write("docker: Error response from daemon: Access is denied.\\n\\n"
+                     "Run 'docker run --help' for more information")
+    sys.exit(125)
+elif mode == "script125":  # the script itself exited 125; the launcher still reports
+    sys.stderr.write("docker: Error response from daemon: Access is denied.")
+    sys.stdout.write("\\n<<<SIMAGENT_RESULT:" + nonce + ">>>\\n" + json.dumps({"files": {}}))
+    sys.exit(125)
 """
 
 
@@ -265,6 +273,21 @@ def test_run_flow_unavailable(stub: Stub, mode: str, message: str) -> None:
     stub.mode = mode
     with pytest.raises(base.RunnerUnavailableError, match=message):
         DockerRunner().run("print(1)\n", timeout_s=20)
+
+
+def test_run_flow_daemon_refusal_is_unavailable(stub: Stub) -> None:
+    """Exit 125 without the launcher envelope is Docker failing, not the script (R-SBX-2)."""
+    stub.mode = "denied"
+    with pytest.raises(base.RunnerUnavailableError, match=r"could not start.*Access is denied"):
+        DockerRunner().run("print(1)\n", timeout_s=20)
+
+
+def test_run_flow_script_exit_125_is_a_script_failure(stub: Stub) -> None:
+    """A script cannot pass its own failure off as an infrastructure one."""
+    stub.mode = "script125"
+    res = DockerRunner().run("print(1)\n", timeout_s=20)
+    assert res.exit_code == 125
+    assert not res.ok
 
 
 def test_run_flow_oom_hint(stub: Stub) -> None:

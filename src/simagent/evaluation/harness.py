@@ -43,7 +43,7 @@ from simagent.llm import ScriptedChatModel
 from simagent.nodes import AgentDeps, AttemptHook
 from simagent.request_facts import RequestFacts
 from simagent.request_facts import extract as extract_facts
-from simagent.runners.base import Runner
+from simagent.runners.base import Runner, RunnerUnavailableError
 from simagent.runners.local import LocalRunner
 from simagent.state import AgentState, AttemptRecord, FinalAnswer
 from simagent.verify import failures, verify
@@ -441,6 +441,10 @@ def evaluate_task(
                 if s is not None:
                     stack.enter_context(s)
             final = solve(task.prompt, deps, max_attempts=cfg.attempts_for_mode, verify=verify_mode)
+    except RunnerUnavailableError as exc:
+        # The sandbox, not the model, failed: stop the run without recording the task, so a
+        # resumed run retries it instead of keeping an infrastructure failure as a model one.
+        raise RunnerUnavailableError(f"sandbox unavailable on {task.id}: {exc}") from None
     except Exception as exc:  # recorded as a failed task; the run goes on
         error = f"{type(exc).__name__}: {exc}"
     latency = time.perf_counter() - start

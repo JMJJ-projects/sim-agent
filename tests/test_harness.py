@@ -16,7 +16,7 @@ from simagent.evaluation.tasks import Task, load_tasks
 from simagent.llm import ScriptedChatModel
 from simagent.prompts import PROMPT_VERSION_LATEST
 from simagent.runners import LocalRunner
-from simagent.runners.base import Runner, RunResult
+from simagent.runners.base import Runner, RunnerUnavailableError, RunResult
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = load_tasks(ROOT / "data" / "tasks.jsonl")
@@ -498,4 +498,19 @@ def test_daily_limit_stops_without_recording(tmp_path: Path) -> None:
         run_eval(
             cfg, _pick("single_01"), EXPECTED, Delegating(), lambda t: DailyLimitedModel(replies=[])
         )
+    assert harness.done_task_ids(cfg.results_path) == set()
+
+
+class RefusingRunner(Runner):
+    name = "docker"
+
+    def run(self, code: str, timeout_s: float = 60.0) -> RunResult:
+        raise RunnerUnavailableError("docker could not start the sandbox container (exit 125)")
+
+
+def test_sandbox_failure_stops_without_recording(tmp_path: Path) -> None:
+    """An unusable sandbox is not a model failure: the run stops, the task is not recorded."""
+    cfg = _cfg(tmp_path)
+    with pytest.raises(RunnerUnavailableError, match="sandbox unavailable on single_01"):
+        run_eval(cfg, _pick("single_01"), EXPECTED, RefusingRunner(), fake_model_factory(ROOT))
     assert harness.done_task_ids(cfg.results_path) == set()

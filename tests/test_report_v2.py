@@ -159,3 +159,35 @@ def test_every_readme_number_is_in_the_report() -> None:
     assert numbers, "README block has no numbers"
     missing = sorted(n for n in numbers if n not in report)
     assert not missing, f"README numbers not in docs/eval_results.md: {missing}"
+
+
+def test_quantisation_rows_are_planned() -> None:
+    """Covers R-QV-1: 3B at Q8_0 and a 7B coder at Q4_K_M, verify mode, next to the 3B Q4 row."""
+    plan = json.loads((ROOT / "data" / "bench_plan_v2.json").read_text(encoding="utf-8"))
+    quant = {(r["model"], r["mode"]) for r in plan["runs"] if str(r["round"]) == "6.3"}
+    assert quant == {
+        ("qwen2.5-coder:3b-instruct-q8_0", "verify"),
+        ("qwen2.5-coder:7b-instruct-q4_K_M", "verify"),
+    }
+    assert any((r["model"], r["mode"]) == (report_v2.QUANT_BASE, "verify") for r in plan["runs"])
+
+
+def test_analysis_numbers_come_from_the_report() -> None:
+    """Covers R-REP-2: every percentage, CI and pp difference in the analysis is in the report."""
+    analysis = (ROOT / "docs" / "eval_analysis.md").read_text(encoding="utf-8")
+    report = (ROOT / "docs" / "eval_results.md").read_text(encoding="utf-8")
+    numbers = set(re.findall(r"[+-]?\d+\.\d+(?= %| pp)|\d+\.\d+-\d+\.\d+|\d,\d{3}", analysis))
+    assert len(numbers) > 20
+    missing = sorted(n for n in numbers if n not in report and n.lstrip("+") not in report)
+    assert not missing, f"analysis numbers not in docs/eval_results.md: {missing}"
+
+
+def test_design_notes_cover_every_v2_decision() -> None:
+    """Covers R-REP-4: one section per v2 decision, ending with reviewer questions."""
+    text = (ROOT / "docs" / "design_v2.md").read_text(encoding="utf-8")
+    headings = [ln[3:].lower() for ln in text.splitlines() if ln.startswith("## ")]
+    for topic in ("held-out", "temperature", "bootstrap", "trace", "deterministic", "budget"):
+        assert any(topic in h for h in headings), topic
+    assert "bm25" in text.lower()
+    assert "openmc" in text.lower()
+    assert headings[-1] == "questions a reviewer might ask"

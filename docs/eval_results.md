@@ -519,6 +519,8 @@ Every task outcome gets exactly one class from fixed rules over the recorded dat
 | qwen2.5-coder:3b (p3) repair [heldout] | 55 | 25 | 11 | 14 | 0 | 1 | 14 | 0 |
 | qwen2.5-coder:3b (p3) verify [dev] | 112 | 21 | 6 | 21 | 0 | 0 | 19 | 1 |
 | qwen2.5-coder:3b (p3) verify [heldout] | 59 | 21 | 7 | 17 | 0 | 1 | 15 | 0 |
+| qwen2.5-coder:7b-instruct-q4_K_M (p3) verify [dev] | 85 | 8 | 1 | 5 | 1 | 0 | 8 | 0 |
+| qwen2.5-coder:7b-instruct-q4_K_M (p3) verify [heldout] | 51 | 3 | 1 | 3 | 1 | 0 | 13 | 0 |
 
 Exact classes:
 
@@ -552,3 +554,5 @@ Exact classes:
 - qwen2.5-coder:3b (p3) repair [heldout]: `crash:AttributeError` 3, `crash:NameError` 3, `crash:RuntimeError` 1, `crash:TypeError` 3, `crash:ValueError` 4, `false_refusal` 13, `missed_error_report` 11, `not_refused` 1, `ok` 55, `policy` 1, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 16
 - qwen2.5-coder:3b (p3) verify [dev]: `crash:AttributeError` 4, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 5, `crash:ValueError` 7, `false_refusal` 14, `missed_error_report` 6, `no_result` 1, `not_refused` 5, `ok` 112, `wrong_answer:unit_mismatch` 1, `wrong_answer:wrong_other` 20
 - qwen2.5-coder:3b (p3) verify [heldout]: `crash:AttributeError` 3, `crash:NameError` 3, `crash:RuntimeError` 1, `crash:TypeError` 3, `crash:ValueError` 7, `false_refusal` 14, `missed_error_report` 7, `not_refused` 1, `ok` 59, `policy` 1, `wrong_answer:sweep_structure` 2, `wrong_answer:unit_mismatch` 2, `wrong_answer:wrong_other` 17
+- qwen2.5-coder:7b-instruct-q4_K_M (p3) verify [dev]: `crash:AttributeError` 1, `crash:NameError` 2, `crash:TypeError` 2, `false_refusal` 8, `format` 1, `missed_error_report` 1, `ok` 85, `wrong_answer:sweep_structure` 1, `wrong_answer:wrong_other` 7
+- qwen2.5-coder:7b-instruct-q4_K_M (p3) verify [heldout]: `crash:NameError` 1, `crash:TypeError` 1, `crash:ValueError` 1, `false_refusal` 13, `format` 1, `missed_error_report` 1, `ok` 51, `wrong_answer:wrong_other` 3

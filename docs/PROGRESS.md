@@ -148,15 +148,27 @@ this section and are not redone.
 | R-REP-1, R-REP-3 | `test_report.py` (committed report and README block current), `test_report_v2.py` (every README number in the report) |
 | R-REP-2, R-REP-4 | `test_report_v2.py` (analysis numbers in the report; design notes sections) |
 
-### CHECKPOINT D (2026-11-12): waiting for the user
+### CHECKPOINT D decisions (user, 2026-11-12)
 
-Asked: (1) push and wait for CI; (2) go-ahead to tag `v0.2.0` and publish a GitHub release
-(draft notes in the checkpoint message); (3) Part B now, later, or not at all.
+- CI green on the Phase 7 commits.
+- Refusal rule: prompt v2 is the agent default again (CLI, MCP), v3 selectable, no new runs;
+  published numbers stay as measured with v3 (`d507662`; README, NOTES.md, analysis, design notes).
+- Tag `v0.2.0` and publish the GitHub release (notes add: the verifier flags wrong answers
+  precisely but the 3B model usually can't repair them; the default prompt is v2 and why).
+- **Part B: not now.** Kept as a possible later extension, not scheduled: OpenMC backend in its
+  own sandbox image (official image pinned by digest, photon data mounted read-only), BM25
+  retrieval over the OpenMC API reference vs the full reference, cross-validation of `photonsim`
+  against OpenMC (PLAN-v2 Phases 8-10, SPEC sections 15-16). Starting it would need a new go-ahead
+  and the CHECKPOINT E downloads.
+
+### Status
+
+v2 Part A complete and released as `v0.2.0`. No work scheduled.
 
 ### Open questions
 
-- The prompt v3 refusal rule: keep for Part B, narrow it, or revert to v2? Any change needs new
-  runs and a fresh held-out set to measure honestly.
+- None. Possible later work: re-run the benchmark with the v2 default or a narrower refusal rule
+  on a fresh held-out set; Part B as above.
 
 ---
 

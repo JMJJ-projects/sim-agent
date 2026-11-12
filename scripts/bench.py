@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
     units = select(
-        expand(load_plan(args.plan), prompts.resolve_version(None)), args.only, args.round_
+        expand(load_plan(args.plan), prompts.PROMPT_VERSION_LATEST), args.only, args.round_
     )
     counts = {name: len(load_task_set(name, ROOT)) for name in TASK_SETS}
     if args.action == "status":

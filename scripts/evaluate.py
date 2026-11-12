@@ -70,7 +70,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--resume", action="store_true", help="continue existing results files")
     ap.add_argument("--run-name", default=None, help="prefix; -<task set>-s<seed> is appended")
     ap.add_argument(
-        "--prompt-version", type=int, default=None, help="prompt version (default: latest)"
+        "--prompt-version",
+        type=int,
+        default=None,
+        help="prompt version (default: latest, as in the v2 benchmark plan)",
     )
     ap.add_argument(
         "--delay", type=float, default=0.0, help="seconds to wait between tasks (rate limits)"
@@ -122,7 +125,11 @@ def main(argv: list[str] | None = None) -> int:
         base = replace(base, temperature=args.temperature)
         validate_max_attempts(args.max_attempts)
         try:
-            prompt_version = prompts.resolve_version(args.prompt_version)
+            # The benchmark keeps using the latest prompt unless told otherwise, so planned
+            # runs and their file names do not depend on the agent's default.
+            prompt_version = prompts.resolve_version(
+                args.prompt_version or prompts.PROMPT_VERSION_LATEST
+            )
         except ValueError as exc:
             raise ConfigError(str(exc)) from None
         model_name = resolve_model(base)

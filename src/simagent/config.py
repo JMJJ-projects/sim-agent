@@ -61,7 +61,7 @@ class Settings:
     temperature: float = 0.0
     llm_seed: int = 0
     max_output_tokens: int = 2048  # local models only (Ollama num_predict)
-    prompt_version: int | None = None  # None = latest (simagent.prompts)
+    prompt_version: int | None = None  # None = default, v2 (simagent.prompts)
     limits: SandboxLimits = field(default_factory=SandboxLimits)
 
     @classmethod

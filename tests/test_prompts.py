@@ -63,7 +63,10 @@ def test_validate_request(bad: str) -> None:
 
 
 def test_prompt_versions() -> None:
-    assert prompts.resolve_version(None) == prompts.PROMPT_VERSION_LATEST
+    # The default is v2, not the latest: v3's refusal rule caused false refusals (NOTES.md).
+    assert prompts.PROMPT_VERSION_DEFAULT == 2
+    assert prompts.resolve_version(None) == 2
+    assert prompts.resolve_version(3) == prompts.PROMPT_VERSION_LATEST == 3
     assert prompts.resolve_version(1) == 1
     with pytest.raises(ValueError, match="unknown prompt version"):
         prompts.resolve_version(99)

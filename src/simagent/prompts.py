@@ -133,13 +133,18 @@ MAY_REFUSE_HINT = (
 SYSTEMS: dict[int, str] = {1: SYSTEM, 2: SYSTEM_V2, 3: SYSTEM_V2}
 REPAIRS: dict[int, str] = {1: REPAIR, 2: REPAIR, 3: REPAIR_V3}
 PROMPT_VERSION_LATEST = max(SYSTEMS)
+# Default for the agent (CLI, MCP) when no version is set. v2, not the latest: the v2 benchmark
+# measured v3's refusal rule causing false refusals after ordinary failed attempts, with no
+# adversarial gain (docs/NOTES.md, "Prompt v3"). v3 stays selectable; the published v2 results
+# were run with v3 and stay as measured. Evaluation code names its version explicitly.
+PROMPT_VERSION_DEFAULT = 2
 MAY_REFUSE_FROM_VERSION = 3
 
 
 def resolve_version(version: int | None) -> int:
-    """``None`` means the latest version; unknown versions raise ``ValueError``."""
+    """``None`` means the default version (v2); unknown versions raise ``ValueError``."""
     if version is None:
-        return PROMPT_VERSION_LATEST
+        return PROMPT_VERSION_DEFAULT
     if version not in SYSTEMS:
         raise ValueError(f"unknown prompt version {version}; available: {sorted(SYSTEMS)}")
     return version

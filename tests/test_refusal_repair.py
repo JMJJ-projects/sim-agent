@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage
 
 from simagent import prompts
 from simagent.codeblock import REFUSAL_PREFIX
+from simagent.config import Settings
 from simagent.graph import solve
 from simagent.llm import ScriptedChatModel
 from simagent.nodes import AgentDeps, may_refuse
@@ -89,3 +90,12 @@ def test_no_hint_with_older_prompt_versions() -> None:
     repair_prompt = _content(model.calls[1][-1])
     assert prompts.MAY_REFUSE_HINT not in repair_prompt
     assert "the correct repair is not new code" not in repair_prompt
+
+
+def test_default_repair_prompt_has_no_refusal_rule() -> None:
+    """The agent's default (CLI, MCP) is prompt v2; v3 stays selectable (user decision)."""
+    default = _content(prompts.repair_messages("req", "x = 1\n", "boom")[-1])
+    assert "the correct repair is not new code" not in default
+    assert Settings().prompt_version is None  # None resolves to the default, v2
+    chosen = _content(prompts.repair_messages("req", "x = 1\n", "boom", 3)[-1])
+    assert "the correct repair is not new code" in chosen

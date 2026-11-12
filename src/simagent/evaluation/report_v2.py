@@ -150,7 +150,7 @@ def load(root: Path, results_dir: Path | None = None) -> V2Data | None:
         return None
     configs, comparisons = analyse(groups)
     plan = load_plan(root / PLAN) if (root / PLAN).is_file() else {"runs": []}
-    units = expand(plan, prompts.resolve_version(None))
+    units = expand(plan, prompts.PROMPT_VERSION_LATEST)
     counts = {name: len(load_task_set(name, root)) for name in TASK_SETS}
     missing = []
     for u in units:
@@ -186,7 +186,7 @@ def load(root: Path, results_dir: Path | None = None) -> V2Data | None:
 
 def _order(data: V2Data) -> list[ConfigStats]:
     """Configurations in plan order (dev before held-out), then anything not in the plan."""
-    latest = prompts.resolve_version(None)
+    latest = prompts.PROMPT_VERSION_LATEST
     rank: dict[tuple[str, str, int, str], int] = {}
     for i, r in enumerate(data.plan.get("runs", [])):
         key = (r["provider"], r["model"], int(r.get("prompt_version") or latest), r["mode"])
@@ -375,7 +375,7 @@ def quant_rows(data: V2Data) -> list[QuantRow]:
             k
             for k in data.records
             if (k.model, k.mode, k.provider) == (model, QUANT_MODE, "ollama")
-            and k.prompt_version == prompts.resolve_version(None)
+            and k.prompt_version == prompts.PROMPT_VERSION_LATEST
         ]
         if not keys:
             continue
@@ -409,7 +409,7 @@ def _quant(data: V2Data) -> list[str]:
     if not rows:
         return [*out, "No quantisation runs committed yet."]
     out += [
-        f"Mode `{QUANT_MODE}`, prompt v{prompts.resolve_version(None)}, on a 4 GB laptop GPU "
+        f"Mode `{QUANT_MODE}`, prompt v{prompts.PROMPT_VERSION_LATEST}, on a 4 GB laptop GPU "
         "(RTX 3050 Mobile). Model size and VRAM come from Ollama's running-models API "
         "(`/api/ps`: `size`, `size_vram`), sampled during the run: the largest value seen. "
         "`on GPU` is `size_vram / size` (smallest seen); the rest runs on the CPU. Latency, "
@@ -464,7 +464,7 @@ def headline_models(data: V2Data) -> list[str]:
 
 
 def readme_rows(data: V2Data) -> list[str]:
-    latest = prompts.resolve_version(None)
+    latest = prompts.PROMPT_VERSION_LATEST
     lines = [
         "| model | task set | baseline | repair | verify |",
         "|---|---|---|---|---|",
@@ -504,7 +504,7 @@ def render_chart(data: V2Data, out: Path) -> None:
     import matplotlib.pyplot as plt
 
     models = headline_models(data)
-    latest = prompts.resolve_version(None)
+    latest = prompts.PROMPT_VERSION_LATEST
     sets = list(TASK_SETS)
     fig, axes = plt.subplots(
         1, len(sets), figsize=(11, 0.9 * len(models) + 1.9), dpi=150, facecolor=SURFACE, sharey=True

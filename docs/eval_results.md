@@ -509,6 +509,8 @@ Every task outcome gets exactly one class from fixed rules over the recorded dat
 | qwen2.5-coder:1.5b (p3) repair [heldout] | 27 | 19 | 0 | 4 | 2 | 0 | 68 | 0 |
 | qwen2.5-coder:1.5b (p3) verify [dev] | 59 | 8 | 2 | 3 | 2 | 0 | 105 | 1 |
 | qwen2.5-coder:1.5b (p3) verify [heldout] | 27 | 12 | 0 | 4 | 2 | 0 | 74 | 1 |
+| qwen2.5-coder:3b-instruct-q8_0 (p3) verify [dev] | 73 | 15 | 3 | 10 | 0 | 0 | 7 | 0 |
+| qwen2.5-coder:3b-instruct-q8_0 (p3) verify [heldout] | 42 | 13 | 6 | 7 | 0 | 0 | 4 | 0 |
 | qwen2.5-coder:3b (p2) repair [dev] | 111 | 36 | 8 | 18 | 1 | 0 | 5 | 1 |
 | qwen2.5-coder:3b (p2) repair [heldout] | 58 | 34 | 11 | 13 | 0 | 2 | 2 | 0 |
 | qwen2.5-coder:3b (p3) baseline [dev] | 88 | 17 | 2 | 66 | 4 | 1 | 1 | 1 |
@@ -540,6 +542,8 @@ Exact classes:
 - qwen2.5-coder:1.5b (p3) repair [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:ValueError` 1, `false_refusal` 68, `format` 2, `ok` 27, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 3, `wrong_answer:wrong_material` 2, `wrong_answer:wrong_other` 11
 - qwen2.5-coder:1.5b (p3) verify [dev]: `crash:NameError` 2, `crash:TypeError` 1, `false_refusal` 101, `format` 2, `missed_error_report` 2, `model_error` 1, `not_refused` 4, `ok` 59, `wrong_answer:wrong_other` 8
 - qwen2.5-coder:1.5b (p3) verify [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:ValueError` 1, `false_refusal` 74, `format` 2, `no_result` 1, `ok` 27, `wrong_answer:wrong_other` 12
+- qwen2.5-coder:3b-instruct-q8_0 (p3) verify [dev]: `crash:AttributeError` 3, `crash:NameError` 2, `crash:RuntimeError` 1, `crash:TypeError` 3, `crash:ValueError` 1, `false_refusal` 4, `missed_error_report` 3, `not_refused` 3, `ok` 73, `wrong_answer:wrong_other` 15
+- qwen2.5-coder:3b-instruct-q8_0 (p3) verify [heldout]: `crash:NameError` 4, `crash:TypeError` 2, `crash:ValueError` 1, `false_refusal` 4, `missed_error_report` 6, `ok` 42, `wrong_answer:unit_mismatch` 1, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 11
 - qwen2.5-coder:3b (p2) repair [dev]: `crash:AttributeError` 2, `crash:NameError` 4, `crash:RuntimeError` 1, `crash:TypeError` 4, `crash:ValueError` 7, `format` 1, `missed_error_report` 8, `model_error` 1, `not_refused` 5, `ok` 111, `wrong_answer:sweep_structure` 3, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 28
 - qwen2.5-coder:3b (p2) repair [heldout]: `crash:AttributeError` 1, `crash:NameError` 1, `crash:RuntimeError` 1, `crash:TypeError` 2, `crash:Unknown` 1, `crash:ValueError` 7, `missed_error_report` 11, `not_refused` 2, `ok` 58, `policy` 2, `wrong_answer:sweep_structure` 7, `wrong_answer:unit_mismatch` 6, `wrong_answer:wrong_material` 1, `wrong_answer:wrong_other` 20
 - qwen2.5-coder:3b (p3) baseline [dev]: `crash:AttributeError` 7, `crash:NameError` 30, `crash:RuntimeError` 1, `crash:TypeError` 7, `crash:ValueError` 21, `format` 4, `missed_error_report` 2, `no_result` 1, `not_refused` 1, `ok` 88, `policy` 1, `wrong_answer:unit_mismatch` 5, `wrong_answer:wrong_other` 12

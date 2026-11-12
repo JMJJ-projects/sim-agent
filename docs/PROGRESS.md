@@ -95,15 +95,68 @@ this section and are not redone.
   Bad results file deleted. Probe after the fix: 3B baseline, 3/3 dev tasks solved. Details in
   NOTES.md.
 
-### Next
+### Phase 6 (2026-11-10 to 2026-11-12)
 
-- The user runs the blocks (commands in the checkpoint message); after each block,
-  `python scripts/bench.py promote`, then results are committed per model (one commit each).
-- Then 6.4 (completeness check), Phase 7 (report, analysis, README, release prep).
+- All blocks run by the user and promoted: 6.1, 6.1b, 6.2 (Groq, over several days), 6.3.
+  Results committed one per model: `520a579` (3B), `c2ed85f` (1.5B), `b7c9e3e` + `a134780`
+  (gpt-oss-120b), `ddfc0fb` (3B Q8_0), `6653f43` (7B Q4_K_M); pushed by the agent on request.
+- 6.4: all 90 planned results files complete, no harness errors, no held-out task excluded
+  (the report's completeness section checks this on every regeneration).
+
+### Phase 7 (2026-11-12)
+
+- 7.1 `feat(report)` v2 sections in `docs/eval_results.md` (`d4577d4`, `1d510a9`): headline with
+  CIs and pass^k, paired comparisons (repair/baseline, verify/repair, prompt v3/v2, quantisation
+  rows vs 3B Q4), verifier quality incl. what happens to flagged tasks, refusal split incl.
+  refusals after a failed attempt, quantisation table + `docs/quant_chart.png`, headline chart
+  `docs/v2_chart.png`; README block = v2 table with CIs. Taxonomy follows; v1 is history.
+- 7.2 `docs/eval_analysis.md` (`5960678`); R-REF-1 "after" numbers in NOTES.md (`16cdced`).
+- 7.3 README rewritten for v2 (`14c40ce`). 7.4 `docs/design_v2.md` (`d353da0`).
+- 7.5 demo re-recorded from a **real** 3B verify benchmark run (dev compare_02, seed 4: crash ->
+  V-LENGTH finding -> correct), no fake provider needed (`6283aac`, `8448955`).
+- 7.6 final pass: fresh clone in a scratch folder, `pip install -e .`, `simagent doctor` (all ok,
+  no API keys set), offline demo exit 0; 727 tests pass with Docker (51 Docker tests), coverage
+  97 %, ruff + mypy --strict clean. Tests added for R-QV-1, R-REP-2, R-REP-4 (`f59a8ca`).
+- Not verified yet: CI on GitHub for the Phase 7 commits (not pushed).
+
+### Headline (from the committed report)
+
+- 7B Q4 vs 3B Q4 (verify): +16.5 pp dev, +21.7 pp held-out (CIs above 0), ~3.3x latency.
+- Repair vs baseline: +10.6 / +11.7 pp (3B), +16.7 / +13.3 pp (1.5B).
+- Verify vs repair: +3.3 pp on held-out for 3B (CI +0.8 to +6.7, McNemar seed 0 p = 1.0); no
+  measurable difference in the other three local comparisons. Verifier precise (3B held-out: 35
+  catches, 1 false alarm) but most flagged tasks still end wrong.
+- Q8_0 vs Q4: no measurable difference. Prompt v3 refusal rule: no adversarial gain, false
+  refusals after failed attempts (3B: 0 -> 12 dev, 0 -> 13 held-out vs v2).
+
+### Part A self-review: requirement -> evidence
+
+| requirement | tests / evidence |
+|---|---|
+| R-HO-1..3 | `test_tasks.py` (category mix, near-duplicates, ambiguity modes), `test_expected.py` |
+| R-HO-4, R-HO-5 | `test_expected.py` (values frozen), `test_verify_references.py` (no held-out refs used); tag `heldout-frozen`; no task excluded |
+| R-STAT-1, R-STAT-2 | `test_harness.py`, `test_v2results.py`, `test_runinfo.py`, `test_llm.py` |
+| R-STAT-3..7 | `test_stats.py` (bootstrap, McNemar vs Fagerland 2013, pass^k, wording), `test_v2results.py`, `test_report_v2.py` |
+| R-TAX-1..4 | `test_taxonomy.py`, `test_taxonomy_report.py` (committed sample current) |
+| R-TRACE-1..3 | `test_provenance.py`, `test_simagent_io.py`, `test_runner_unit.py`, `test_artifacts.py`, `test_sandbox.py` (forging with policy off), `test_policy_patching.py` |
+| R-POL-6 | `test_policy.py`, `test_policy_patching.py` |
+| R-REQ-1..3 | `test_request_facts.py` (61 phrasings not from the task sets) |
+| R-VER-1..7 | `test_verify.py`, `test_verify_agent.py`, `test_verify_references.py` (Docker), `test_harness.py`, `test_cli_solve.py`, `test_mcp.py`, `test_verifier_quality.py`, `test_checkers.py` |
+| R-REF-1, R-REF-2 | `test_refusal_repair.py`; before/after in NOTES.md |
+| R-REF-3 | `test_report_v2.py` (refusal split) |
+| R-QV-1..3 | `test_report_v2.py` (planned rows, quantisation table/chart), `test_harness.py`, `test_runinfo.py` (`/api/ps`) |
+| R-REP-1, R-REP-3 | `test_report.py` (committed report and README block current), `test_report_v2.py` (every README number in the report) |
+| R-REP-2, R-REP-4 | `test_report_v2.py` (analysis numbers in the report; design notes sections) |
+
+### CHECKPOINT D (2026-11-12): waiting for the user
+
+Asked: (1) push and wait for CI; (2) go-ahead to tag `v0.2.0` and publish a GitHub release
+(draft notes in the checkpoint message); (3) Part B now, later, or not at all.
 
 ### Open questions
 
-- Confirmation to pull the two 6.3 models.
+- The prompt v3 refusal rule: keep for Part B, narrow it, or revert to v2? Any change needs new
+  runs and a fresh held-out set to measure honestly.
 
 ---
 

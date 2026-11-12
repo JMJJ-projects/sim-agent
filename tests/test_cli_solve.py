@@ -115,6 +115,7 @@ def test_render_demo_from_recorded_run(tmp_path: Path) -> None:
     svg = out.read_text(encoding="utf-8")
     assert svg.startswith("<svg")
     assert "H2O" in svg
+    assert "[V-" in svg  # the offline demo's caught wrong unit appears as a finding
     assert mod.main(["--search", str(tmp_path / "nothing"), "--out", str(out)]) == 2
 
 

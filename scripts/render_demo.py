@@ -1,7 +1,10 @@
 """Render docs/demo.svg from a real, saved agent run where a repair happened.
 
-    python scripts/render_demo.py                      # pick a repaired run from the benchmark
+    python scripts/render_demo.py                      # pick a repaired run from the v2 benchmark
     python scripts/render_demo.py --run-dir runs/...   # a specific run directory
+
+The automatic pick prefers a run where a verifier finding (``[V-...]``) led to a correct
+answer, so the demo shows verification at work (PLAN-v2 7.5).
 
 Nothing is invented: the SVG shows the request, each attempt's saved error report, the final
 answer and the final script exactly as the run's artifacts (final.json, trace.json) recorded
@@ -21,7 +24,7 @@ from rich.console import Console
 from simagent.cli import print_final
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SEARCH = ROOT / "runs" / "bench" / "artifacts"
+DEFAULT_SEARCH = ROOT / "runs" / "bench" / "v2" / "artifacts"
 PREFERRED_MODEL = "qwen2.5-coder_3b"
 
 
@@ -34,24 +37,26 @@ def _load(run_dir: Path) -> dict[str, Any]:
 def find_repaired_run(search: Path) -> Path | None:
     """A solved run whose first attempt failed.
 
-    Preference order: the primary local model in repair mode, then a typical sandbox time, then
-    the shortest final script (fits the SVG). Every candidate is an unmodified recorded run.
+    Preference order: a verifier finding among the errors, then the primary local model, then a
+    typical sandbox time, then the shortest final script (fits the SVG). Every candidate is an
+    unmodified recorded run.
     """
     candidates = []
     for final_path in sorted(search.rglob("final.json")):
         final = json.loads(final_path.read_text(encoding="utf-8"))
         errors = final.get("errors") or []
         task = final_path.parent.parent.name
-        if task.startswith(("adv_", "ambig_")):
+        if task.removeprefix("ho_").startswith(("adv_", "ambig_")):
             continue  # the demo shows an ordinary request, not an adversarial/misleading task
         if final.get("status") == "solved" and len(errors) >= 2 and errors[0]:
-            preferred = (
-                PREFERRED_MODEL in final_path.as_posix() and "-repair" in final_path.as_posix()
-            )
+            finding = any("failed verification" in str(e or "") for e in errors)
+            # "<model>-p<prompt>-": the exact tag, not e.g. its "-instruct-q8_0" variant.
+            preferred = f"{PREFERRED_MODEL}-p" in final_path.as_posix()
             # Prefer a typical run (sandbox time under 10 s) over an outlier; all are real runs.
             typical = (final.get("metrics") or {}).get("run_s", 0) < 10
             candidates.append(
                 (
+                    not finding,
                     not preferred,
                     not typical,
                     len(final.get("final_script") or ""),
@@ -67,7 +72,8 @@ def render(run_dir: Path, out: Path) -> None:
     console = Console(record=True, width=100, force_terminal=True, color_system="truecolor")
     console.print(
         f"[dim]$[/] simagent solve {json.dumps(final['request'])} "
-        f"--provider {trace.get('provider')} --model {trace.get('model')}",
+        f"--provider {trace.get('provider')} --model {trace.get('model')}"
+        + (f" --mode {trace['mode']}" if trace.get("mode") else ""),
         highlight=False,
         soft_wrap=True,
     )

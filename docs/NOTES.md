@@ -311,9 +311,17 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
 - **Before (v1 results, prompt v2 unless noted, temperature 0, one run, adversarial tasks passed
   in repair mode):** `qwen2.5-coder:3b` 4/5, `qwen2.5-coder:1.5b` 1/5, `qwen2.5:3b` 5/5,
   `openai/gpt-oss-120b` 5/5 (`results/*-repair.jsonl`).
-- **After:** pending the Phase 6 runs (prompt v3). Caveat: those run at temperature 0.7 over
-  several seeds, so they are not a like-for-like comparison with the v1 numbers above; a clean
-  before/after needs v2 and v3 runs with the same v2 settings (decision for CHECKPOINT C).
+- **After (2026-11-12, like for like):** block 6.1b ran `qwen2.5-coder:3b` repair with prompt v2
+  under the same v2 settings as the 6.1 v3 runs (temperature 0.7, seeds 0-4). Adversarial task
+  outcomes passed, v2 -> v3: dev 20/25 -> 19/25, held-out 8/10 -> 9/10: no gain. Success: no
+  measurable difference (dev -2.2 pp, CI -7.2 to +2.8; held-out -2.5 pp, CI -9.2 to +4.2).
+  **Side effect:** false refusals of legitimate tasks went from 0 to 12 (dev) and 0 to 13
+  (held-out), every one of them after a failed attempt, i.e. in reply to the repair prompt. The
+  1.5B model under v3 has 96/180 (dev) and 68/120 (held-out) false refusals in repair mode.
+  Verdict: the rule did not do what it was for and costs legitimate tasks; it should be narrowed
+  or removed in a later round (not done now: it would need new runs, and the held-out set has
+  been seen). Source: `docs/eval_results.md` (refusal table, paired comparisons); discussion in
+  `docs/eval_analysis.md`.
 
 ## CHECKPOINT C facts (2026-11-09)
 

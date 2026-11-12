@@ -281,10 +281,13 @@ def _verifier(data: V2Data, tasks: dict[str, Task]) -> list[str]:
         "verifier failed that the checker also judges wrong. `false alarms`: attempts the "
         "verifier failed that the checker judges correct. `misses`: final answers the checker "
         "judges wrong that the verifier passed. `wrong answers`: final outcomes classed "
-        "`wrong_answer:*` by the taxonomy.\n",
+        "`wrong_answer:*` by the taxonomy. `flagged tasks -> passed / refused`: task outcomes "
+        "with at least one flagged attempt, and how many of them ended passed or refused (in "
+        "`verify` mode the findings go back to the model; in the other modes they do not).\n",
         "| task set | model | prompt | mode | checked | flagged | catches | false alarms | "
-        "misses | wrong answers | flagged by check | false alarms by check |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "misses | wrong answers | flagged tasks -> passed / refused | flagged by check | "
+        "false alarms by check |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for c in _order(data):
         k = c.key
@@ -292,6 +295,11 @@ def _verifier(data: V2Data, tasks: dict[str, Task]) -> list[str]:
         q = verifier_quality(recs)
         if q is None:
             continue
+        flagged = [r for r in recs if any(a["verifier_failed"] for a in r["attempt_checks"])]
+        after = (
+            f"{len(flagged)} -> {sum(1 for r in flagged if r['passed'])} / "
+            f"{sum(1 for r in flagged if r['status'] == 'refused')}"
+        )
         wrong = sum(
             1
             for r in recs
@@ -303,7 +311,7 @@ def _verifier(data: V2Data, tasks: dict[str, Task]) -> list[str]:
         out.append(
             f"| {k.task_set} | `{k.model}` | v{k.prompt_version} | {k.mode} | "
             f"{q['results_checked']} | {q['verifier_failed']} | {q['catches']} | "
-            f"{q['false_alarms']} | {q['misses']} | {wrong} | {by} | {fa} |"
+            f"{q['false_alarms']} | {q['misses']} | {wrong} | {after} | {by} | {fa} |"
         )
     return out
 

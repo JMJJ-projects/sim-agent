@@ -64,32 +64,32 @@ Same model and task set on both sides; the difference is a minus b in success ra
 
 ## Verifier quality
 
-Computed for every mode from the recorded answers and traces (the verifier is a pure function of recorded data), so baseline and repair rows show what verification *would* have flagged. `checked`: attempts that produced a result. `catches`: attempts the verifier failed that the checker also judges wrong. `false alarms`: attempts the verifier failed that the checker judges correct. `misses`: final answers the checker judges wrong that the verifier passed. `wrong answers`: final outcomes classed `wrong_answer:*` by the taxonomy.
+Computed for every mode from the recorded answers and traces (the verifier is a pure function of recorded data), so baseline and repair rows show what verification *would* have flagged. `checked`: attempts that produced a result. `catches`: attempts the verifier failed that the checker also judges wrong. `false alarms`: attempts the verifier failed that the checker judges correct. `misses`: final answers the checker judges wrong that the verifier passed. `wrong answers`: final outcomes classed `wrong_answer:*` by the taxonomy. `flagged tasks -> passed / refused`: task outcomes with at least one flagged attempt, and how many of them ended passed or refused (in `verify` mode the findings go back to the model; in the other modes they do not).
 
-| task set | model | prompt | mode | checked | flagged | catches | false alarms | misses | wrong answers | flagged by check | false alarms by check |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| dev | `qwen2.5-coder:3b` | v3 | baseline | 81 | 7 | 5 | 2 | 15 | 17 | V-LENGTH 7 | V-LENGTH 2 |
-| dev | `qwen2.5-coder:3b` | v3 | repair | 125 | 18 | 15 | 3 | 27 | 29 | V-ENERGY 4, V-LENGTH 9, V-SWEEP 3, V-UNKNOWN 4 | V-LENGTH 3 |
-| dev | `qwen2.5-coder:3b` | v3 | verify | 138 | 23 | 19 | 4 | 28 | 21 | V-ENERGY 4, V-LENGTH 13, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 4 |
-| dev | `qwen2.5-coder:3b` | v2 | repair | 137 | 16 | 13 | 3 | 36 | 36 | V-ENERGY 3, V-LENGTH 8, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 3 |
-| dev | `qwen2.5-coder:1.5b` | v3 | baseline | 14 | 3 | 2 | 1 | 3 | 5 | V-LENGTH 3 | V-LENGTH 1 |
-| dev | `qwen2.5-coder:1.5b` | v3 | repair | 36 | 6 | 5 | 1 | 8 | 11 | V-COUNT 1, V-LENGTH 4, V-MATERIAL 1, V-SWEEP 1 | V-LENGTH 1 |
-| dev | `qwen2.5-coder:1.5b` | v3 | verify | 38 | 8 | 7 | 1 | 9 | 8 | V-COUNT 1, V-LENGTH 4, V-MATERIAL 3, V-SWEEP 1 | V-LENGTH 1 |
-| dev | `openai/gpt-oss-120b` | v3 | repair | 62 | 0 | 0 | 0 | 1 | 1 | - | - |
-| dev | `openai/gpt-oss-120b` | v3 | verify | 62 | 0 | 0 | 0 | 0 | 0 | - | - |
-| dev | `qwen2.5-coder:3b-instruct-q8_0` | v3 | verify | 91 | 12 | 12 | 0 | 19 | 15 | V-ENERGY 3, V-LENGTH 4, V-SWEEP 2, V-UNKNOWN 5 | - |
-| dev | `qwen2.5-coder:7b-instruct-q4_K_M` | v3 | verify | 81 | 15 | 9 | 6 | 7 | 8 | V-LENGTH 8, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 6 |
-| heldout | `qwen2.5-coder:3b` | v3 | baseline | 43 | 4 | 4 | 0 | 7 | 9 | V-ENERGY 1, V-LENGTH 2, V-SWEEP 1, V-UNKNOWN 1 | - |
-| heldout | `qwen2.5-coder:3b` | v3 | repair | 83 | 19 | 18 | 1 | 19 | 25 | V-ENERGY 7, V-LENGTH 5, V-MATERIAL 1, V-SWEEP 5, V-UNKNOWN 8 | V-SWEEP 1 |
-| heldout | `qwen2.5-coder:3b` | v3 | verify | 105 | 36 | 35 | 1 | 20 | 21 | V-ENERGY 14, V-LENGTH 8, V-MATERIAL 1, V-SWEEP 9, V-UNKNOWN 16 | V-SWEEP 1 |
-| heldout | `qwen2.5-coder:3b` | v2 | repair | 97 | 23 | 23 | 0 | 23 | 34 | V-ENERGY 6, V-LENGTH 6, V-MATERIAL 1, V-SWEEP 10, V-UNKNOWN 6 | - |
-| heldout | `qwen2.5-coder:1.5b` | v3 | baseline | 15 | 6 | 6 | 0 | 6 | 12 | V-ENERGY 1, V-LENGTH 3, V-MATERIAL 2, V-SWEEP 2 | - |
-| heldout | `qwen2.5-coder:1.5b` | v3 | repair | 23 | 9 | 8 | 1 | 11 | 19 | V-COUNT 1, V-ENERGY 1, V-LENGTH 3, V-MATERIAL 3, V-SWEEP 3 | V-COUNT 1 |
-| heldout | `qwen2.5-coder:1.5b` | v3 | verify | 25 | 9 | 8 | 1 | 12 | 12 | V-COUNT 1, V-ENERGY 1, V-LENGTH 3, V-MATERIAL 3, V-SWEEP 3 | V-COUNT 1 |
-| heldout | `openai/gpt-oss-120b` | v3 | repair | 44 | 0 | 0 | 0 | 1 | 0 | - | - |
-| heldout | `openai/gpt-oss-120b` | v3 | verify | 44 | 0 | 0 | 0 | 0 | 0 | - | - |
-| heldout | `qwen2.5-coder:3b-instruct-q8_0` | v3 | verify | 72 | 22 | 20 | 2 | 13 | 13 | V-ENERGY 6, V-LENGTH 10, V-MATERIAL 2, V-SWEEP 2, V-UNKNOWN 8 | V-LENGTH 2 |
-| heldout | `qwen2.5-coder:7b-instruct-q4_K_M` | v3 | verify | 54 | 12 | 12 | 0 | 4 | 3 | V-ENERGY 2, V-LENGTH 8, V-SWEEP 2, V-UNKNOWN 3 | - |
+| task set | model | prompt | mode | checked | flagged | catches | false alarms | misses | wrong answers | flagged tasks -> passed / refused | flagged by check | false alarms by check |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| dev | `qwen2.5-coder:3b` | v3 | baseline | 81 | 7 | 5 | 2 | 15 | 17 | 7 -> 2 / 0 | V-LENGTH 7 | V-LENGTH 2 |
+| dev | `qwen2.5-coder:3b` | v3 | repair | 125 | 18 | 15 | 3 | 27 | 29 | 18 -> 3 / 0 | V-ENERGY 4, V-LENGTH 9, V-SWEEP 3, V-UNKNOWN 4 | V-LENGTH 3 |
+| dev | `qwen2.5-coder:3b` | v3 | verify | 138 | 23 | 19 | 4 | 28 | 21 | 18 -> 7 / 2 | V-ENERGY 4, V-LENGTH 13, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 4 |
+| dev | `qwen2.5-coder:3b` | v2 | repair | 137 | 16 | 13 | 3 | 36 | 36 | 16 -> 3 / 0 | V-ENERGY 3, V-LENGTH 8, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 3 |
+| dev | `qwen2.5-coder:1.5b` | v3 | baseline | 14 | 3 | 2 | 1 | 3 | 5 | 3 -> 1 / 0 | V-LENGTH 3 | V-LENGTH 1 |
+| dev | `qwen2.5-coder:1.5b` | v3 | repair | 36 | 6 | 5 | 1 | 8 | 11 | 6 -> 1 / 0 | V-COUNT 1, V-LENGTH 4, V-MATERIAL 1, V-SWEEP 1 | V-LENGTH 1 |
+| dev | `qwen2.5-coder:1.5b` | v3 | verify | 38 | 8 | 7 | 1 | 9 | 8 | 6 -> 0 / 5 | V-COUNT 1, V-LENGTH 4, V-MATERIAL 3, V-SWEEP 1 | V-LENGTH 1 |
+| dev | `openai/gpt-oss-120b` | v3 | repair | 62 | 0 | 0 | 0 | 1 | 1 | 0 -> 0 / 0 | - | - |
+| dev | `openai/gpt-oss-120b` | v3 | verify | 62 | 0 | 0 | 0 | 0 | 0 | 0 -> 0 / 0 | - | - |
+| dev | `qwen2.5-coder:3b-instruct-q8_0` | v3 | verify | 91 | 12 | 12 | 0 | 19 | 15 | 7 -> 4 / 1 | V-ENERGY 3, V-LENGTH 4, V-SWEEP 2, V-UNKNOWN 5 | - |
+| dev | `qwen2.5-coder:7b-instruct-q4_K_M` | v3 | verify | 81 | 15 | 9 | 6 | 7 | 8 | 8 -> 3 / 3 | V-LENGTH 8, V-SWEEP 3, V-UNKNOWN 5 | V-LENGTH 6 |
+| heldout | `qwen2.5-coder:3b` | v3 | baseline | 43 | 4 | 4 | 0 | 7 | 9 | 4 -> 0 / 0 | V-ENERGY 1, V-LENGTH 2, V-SWEEP 1, V-UNKNOWN 1 | - |
+| heldout | `qwen2.5-coder:3b` | v3 | repair | 83 | 19 | 18 | 1 | 19 | 25 | 19 -> 1 / 0 | V-ENERGY 7, V-LENGTH 5, V-MATERIAL 1, V-SWEEP 5, V-UNKNOWN 8 | V-SWEEP 1 |
+| heldout | `qwen2.5-coder:3b` | v3 | verify | 105 | 36 | 35 | 1 | 20 | 21 | 19 -> 5 / 2 | V-ENERGY 14, V-LENGTH 8, V-MATERIAL 1, V-SWEEP 9, V-UNKNOWN 16 | V-SWEEP 1 |
+| heldout | `qwen2.5-coder:3b` | v2 | repair | 97 | 23 | 23 | 0 | 23 | 34 | 23 -> 0 / 0 | V-ENERGY 6, V-LENGTH 6, V-MATERIAL 1, V-SWEEP 10, V-UNKNOWN 6 | - |
+| heldout | `qwen2.5-coder:1.5b` | v3 | baseline | 15 | 6 | 6 | 0 | 6 | 12 | 6 -> 0 / 0 | V-ENERGY 1, V-LENGTH 3, V-MATERIAL 2, V-SWEEP 2 | - |
+| heldout | `qwen2.5-coder:1.5b` | v3 | repair | 23 | 9 | 8 | 1 | 11 | 19 | 9 -> 1 / 0 | V-COUNT 1, V-ENERGY 1, V-LENGTH 3, V-MATERIAL 3, V-SWEEP 3 | V-COUNT 1 |
+| heldout | `qwen2.5-coder:1.5b` | v3 | verify | 25 | 9 | 8 | 1 | 12 | 12 | 9 -> 1 / 7 | V-COUNT 1, V-ENERGY 1, V-LENGTH 3, V-MATERIAL 3, V-SWEEP 3 | V-COUNT 1 |
+| heldout | `openai/gpt-oss-120b` | v3 | repair | 44 | 0 | 0 | 0 | 1 | 0 | 0 -> 0 / 0 | - | - |
+| heldout | `openai/gpt-oss-120b` | v3 | verify | 44 | 0 | 0 | 0 | 0 | 0 | 0 -> 0 / 0 | - | - |
+| heldout | `qwen2.5-coder:3b-instruct-q8_0` | v3 | verify | 72 | 22 | 20 | 2 | 13 | 13 | 11 -> 3 / 1 | V-ENERGY 6, V-LENGTH 10, V-MATERIAL 2, V-SWEEP 2, V-UNKNOWN 8 | V-LENGTH 2 |
+| heldout | `qwen2.5-coder:7b-instruct-q4_K_M` | v3 | verify | 54 | 12 | 12 | 0 | 4 | 3 | 10 -> 5 / 5 | V-ENERGY 2, V-LENGTH 8, V-SWEEP 2, V-UNKNOWN 3 | - |
 
 ## Refusal and ambiguity (R-REF-3)
 

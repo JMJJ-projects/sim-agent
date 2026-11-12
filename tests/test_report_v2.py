@@ -63,6 +63,13 @@ def _write_run(results: Path, model: str, mode: str, seed: int, n_pass: int) -> 
         legit = task.category not in ("adversarial", "ambiguous_or_misleading")
         if i == len(DEV) - 1 or (i >= n_pass and legit and mode != "baseline"):
             rec.update(status="refused", attempts=2, attempt_outcomes=["run_failed", "refused"])
+        if i == 0 and mode == "verify":  # a flagged first answer, fixed on the second attempt
+            rec["attempt_checks"] = [
+                {"attempt": 1, "checker_passed": False, "verifier_failed": True,
+                 "failed_checks": ["V-LENGTH"]},
+                {"attempt": 2, "checker_passed": True, "verifier_failed": False,
+                 "failed_checks": []},
+            ]  # fmt: skip
         lines.append(json.dumps(rec))
     name = f"ollama-{model.replace(':', '_')}-p3-{mode}-dev-s{seed}.jsonl"
     (v2 / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -97,6 +104,14 @@ def test_v2_sections_from_fixture(tmp_path: Path) -> None:
     )
     cells = [c.strip() for c in row.strip("|").split("|")]
     assert cells[-2] == cells[-1] != "0"
+    # Verifier quality: one flagged task per seed, a catch, fixed afterwards.
+    verify_row = next(
+        ln
+        for ln in text.split("## Verifier quality")[1].splitlines()
+        if ln.startswith("| dev | `qwen2.5-coder:3b` | v3 | verify |")
+    )
+    assert "| 2 | 2 | 0 | " in verify_row  # flagged, catches, false alarms
+    assert "| 2 -> 2 / 0 | V-LENGTH 2 | - |" in verify_row
     # Quantisation study shows the 3B Q4 reference row with /api/ps numbers.
     assert "| `qwen2.5-coder:3b` | Q4_K_M | 55.6 % (" in text
     assert "| 2,000 MiB | 2,000 MiB | 100 % |" in text

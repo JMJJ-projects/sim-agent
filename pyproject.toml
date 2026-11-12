@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sim-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Natural language to sandboxed photon-transport simulation code, with a self-correction loop, an MCP server and an evaluation harness."
 readme = "README.md"
 requires-python = ">=3.11"

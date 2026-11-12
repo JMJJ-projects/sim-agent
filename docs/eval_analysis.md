@@ -116,9 +116,11 @@ v2 under identical settings, so the comparison is like for like:
   after a failed attempt.
 
 The rule is general (no task-specific wording) and was logged before the runs, so this is a fair
-negative result. It should be narrowed (e.g. only offered together with the R-REF-2 hint, when the
-policy rejected a forbidden capability) or removed; that is a change for a later round, measured
-on dev first and then on a fresh held-out set, because this held-out set has now been seen.
+negative result. **Since v0.2.0 the agent's default prompt is v2 again** (CLI and MCP); v3 stays
+selectable, and every number on this page stays as measured with v3. A narrower rule (e.g. only
+together with the R-REF-2 hint, when the policy rejected a forbidden capability) is a change for a
+later round, measured on dev first and then on a fresh held-out set, because this held-out set
+has now been seen.
 
 ## Quantisation and model size on 4 GB
 

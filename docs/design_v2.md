@@ -138,8 +138,9 @@ refusal rule (below), not from the checks.
 **Did a prompt change backfire?** Yes. Prompt v3 added "if the request is out of scope, refuse" to
 the repair prompt. Compared like for like with v2 (block 6.1b), it brought no adversarial gain and
 caused 12 (dev) and 13 (held-out) false refusals for the 3B model, all after a failed attempt.
-It was not changed after seeing this, because that would tune on the held-out set; the fix is a
-roadmap item that needs a fresh held-out set.
+The prompts were not edited after seeing this. Instead the agent's default went back to v2, which
+was already measured like for like, and v3 stays selectable. The published numbers stay as
+measured with v3; checking a narrower rule needs new runs and a fresh held-out set.
 
 **Is the 7B result an artefact of more seeds or more time?** It had fewer seeds (3 against 5) and
 the same 4-attempt budget. It is slower (median 32.7 s per task against 9.8 s), and it runs with

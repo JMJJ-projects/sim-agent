@@ -20,7 +20,8 @@ seeds, with 95 % confidence intervals:
   alarms, but the small model rarely fixes them: +3.3 pp on held-out for the 3B model, no
   measurable difference in the three other local comparisons.
 - **Q8 instead of Q4: no measurable difference.** And the refusal rule added to the repair
-  prompt (v3) caused false refusals after ordinary crashes, with no adversarial gain.
+  prompt (v3) caused false refusals after ordinary crashes, with no adversarial gain, so the
+  agent's default prompt is **v2** again (see below).
 
 ![A recorded run: a crash, then a wrong thickness caught by the verifier, then a correct answer](docs/demo.svg)
 
@@ -57,6 +58,14 @@ answer against the request and the simulation trace), `--max-attempts 1` for sin
 Exit codes: 0 solved, 3 not solved, refused or answered but unverified, 2
 invalid input or missing sandbox (one line, no stack trace), 1 unexpected error.
 MCP setup: [docs/mcp.md](docs/mcp.md); a recorded client session: [docs/mcp_demo.md](docs/mcp_demo.md).
+
+**Default prompt: v2.** The CLI and the MCP server use prompt v2 unless
+`SIMAGENT_PROMPT_VERSION` is set. Prompt v3 adds one rule to the repair prompt ("if the request is
+out of scope, refuse instead of writing new code"). The benchmark measured that rule causing
+false refusals: after an ordinary crash, small models refused legitimate requests (3B: 0 -> 12 on
+dev and 0 -> 13 on held-out against v2), with no gain on adversarial tasks. v3 stays selectable
+(`SIMAGENT_PROMPT_VERSION=3`). The published v2 benchmark numbers were run with v3 and stay as
+measured; the benchmark scripts still use v3 unless told otherwise.
 
 ## How it works
 
@@ -187,9 +196,9 @@ From v1:
 
 ## Roadmap
 
-- Narrow or drop the v3 refusal rule in the repair prompt, then re-measure on a fresh held-out set.
-- An OpenMC backend behind the same `Runner`, with BM25 retrieval over its API reference, and a
-  cross-validation of `photonsim` against OpenMC (planned as Part B).
+- Re-run the benchmark with the v2 default (or a narrower refusal rule) on a fresh held-out set.
+- A possible later extension: an OpenMC backend behind the same `Runner`, with BM25 retrieval
+  over its API reference, and a cross-validation of `photonsim` against OpenMC.
 - Use the checkers and the verifier as a reward signal for a small preference-tuning experiment.
 
 ## Make targets

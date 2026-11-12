@@ -322,6 +322,15 @@ input tokens per task in repair mode 3,742 → 2,406. Analysis: `docs/eval_analy
   or removed in a later round (not done now: it would need new runs, and the held-out set has
   been seen). Source: `docs/eval_results.md` (refusal table, paired comparisons); discussion in
   `docs/eval_analysis.md`.
+- **Default switched back to v2 (user decision at CHECKPOINT D, 2026-11-12, no new runs):**
+  `prompts.PROMPT_VERSION_DEFAULT = 2`; the CLI and the MCP server use it when
+  `SIMAGENT_PROMPT_VERSION` is unset. Reason: the measured false refusals above. v3 stays
+  selectable (`SIMAGENT_PROMPT_VERSION=3`). Consequences: the R-REF-2 "may refuse" hint (v3 and
+  later only) is off by default, and R-REF-1 is implemented but not the default (deviation from
+  the spec's intent, by decision). The evaluation scripts and the report keep naming the latest
+  version (v3) explicitly, so the benchmark plan, results file names and every published v2
+  number stay as measured with v3. The v2 default itself has not been benchmarked under v2
+  settings beyond block 6.1b (3B, repair), which is the comparison above.
 
 ## CHECKPOINT C facts (2026-11-09)
 

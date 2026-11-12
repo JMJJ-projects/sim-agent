@@ -22,10 +22,12 @@ seeds, with 95 % confidence intervals:
 - **Q8 instead of Q4: no measurable difference.** And the refusal rule added to the repair
   prompt (v3) caused false refusals after ordinary crashes, with no adversarial gain.
 
-![A recorded run where the first attempt fails and the repair succeeds](docs/demo.svg)
+![A recorded run: a crash, then a wrong thickness caught by the verifier, then a correct answer](docs/demo.svg)
 
-*A recorded benchmark run (`scripts/render_demo.py` draws it from the run's saved artifacts):
-the local 3B model forgets an import, the sandbox returns the traceback, the repair passes.*
+*A recorded v2 benchmark run of the local 3B model in `verify` mode (temperature 0.7, seed 4;
+`scripts/render_demo.py` draws it from the run's saved artifacts): the first script crashes on a
+missing import; the second runs but simulates the wrong lead thickness, which the verifier catches
+from the simulator's trace (V-LENGTH); the third is correct.*
 
 ## Quickstart
 

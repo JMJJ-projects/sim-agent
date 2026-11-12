@@ -2,14 +2,25 @@
 
 [![CI](https://github.com/JMJJ-projects/sim-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/JMJJ-projects/sim-agent/actions/workflows/ci.yml)
 
-**Natural language → sandboxed simulation code, with a self-correction loop, an MCP server and
-an honest evaluation harness.** Ask a question about photon transport in plain language ("sweep
-the lead thickness from 1 to 10 cm and tell me where transmission drops below 1 %"). The agent
-writes a Python script against a small Monte Carlo simulator, checks it statically, runs it in
-a locked-down Docker sandbox, and when the run fails, feeds the error back to the model and
-repairs the script. It runs on small local models (Ollama, 4 GB of VRAM) or hosted ones, and
-it is measured: single-shot vs repair loop, across models, with accuracy, latency, tokens and
-cost.
+**Natural language → sandboxed simulation code, with a repair loop, a verifier, an MCP server and
+an evaluation harness.** Ask a question about photon transport in plain language ("sweep the lead
+thickness from 1 to 10 cm and tell me where transmission drops below 1 %"). The agent writes a
+Python script against a small Monte Carlo simulator, checks it statically, runs it in a
+locked-down Docker sandbox, repairs it when it fails, and **verifies the answer against the
+request and a trace recorded by the simulator itself** before returning it.
+
+**The question this repo answers: what actually helps a small local model on a 4 GB GPU?**
+Measured over 60 tasks (24 of them held out, frozen before the verifier was written), several
+seeds, with 95 % confidence intervals:
+
+- **A bigger model, even half on the CPU, helps most:** the 7B coder at Q4 beats the 3B coder by
+  16.5 pp (dev) and 21.7 pp (held-out), at about 3.3x the latency.
+- **The repair loop helps:** +10.6 / +11.7 pp for the 3B model, +16.7 / +13.3 pp for the 1.5B.
+- **Verification helps much less than it catches:** it flags wrong answers with few false
+  alarms, but the small model rarely fixes them: +3.3 pp on held-out for the 3B model, no
+  measurable difference in the three other local comparisons.
+- **Q8 instead of Q4: no measurable difference.** And the refusal rule added to the repair
+  prompt (v3) caused false refusals after ordinary crashes, with no adversarial gain.
 
 ![A recorded run where the first attempt fails and the repair succeeds](docs/demo.svg)
 
@@ -49,15 +60,25 @@ MCP setup: [docs/mcp.md](docs/mcp.md); a recorded client session: [docs/mcp_demo
 
 ```mermaid
 flowchart LR
-    U[request] --> G[generate]
+    U[request] --> FA[facts]
+    FA --> G[generate]
     G --> P{check_policy}
-    P -- passes --> X[execute in sandbox]
+    P -- passes --> X[execute in sandbox + trace]
     P -- violation --> E[evaluate_run]
     X --> E
+    E -- result --> V{verify}
     E -- failed, attempts left --> R[repair]
+    V -- findings, attempts left --> R
     R --> P
-    E -- solved / refused / out of attempts --> F[finalize]
+    E -- refused / out of attempts --> F[finalize]
+    V -- passes / out of attempts --> F
 ```
+
+- **Facts and verifier** (v2): `facts` extracts what the request states (units, energies,
+  thicknesses, lists, counts, materials) with deterministic rules and stays silent when unsure.
+  `verify` checks the answer against those facts and against the provenance trace, which
+  `photonsim` records inside the sandbox for every simulation call; generated code cannot write
+  or alter it. Findings go back through `repair` within the same attempt budget as crash repairs.
 
 - **`photonsim`**: a vectorised NumPy Monte Carlo of photons crossing a stack of slabs
   (transmitted / reflected / absorbed). Attenuation data for six materials comes from NIST
@@ -110,29 +131,34 @@ Mean success over seeds at temperature 0.7 (local models 5 seeds, hosted 2), wit
 
 <!-- results:end -->
 
-![Success rate by model and mode; latency vs success](docs/eval_chart.png)
+![Success with 95 % CI: baseline, repair and verify per model, dev and held-out](docs/v2_chart.png)
 
-**What the numbers say** ([full analysis](docs/eval_analysis_v1.md)): with the original prompt the
-repair loop lifted the 3B coder from 7 to 20 of 36, mostly by fixing one missing import; a
-one-line prompt change (v2) got the same model to 23 single-shot, after which repair adds little.
-Repair fixes crashes, not wrong logic ("solved but wrong" rises in repair mode), and for the
-weakest model it lowered the adversarial score by pushing it to produce code. The hosted 120B
-model passes 36/36 with repair; the best local model on 4 GB of VRAM passes 24/36.
+**What the numbers say** ([full analysis](docs/eval_analysis.md)): the summary at the top of this
+page. The verifier's quality, the false-refusal side effect of prompt v3, the failure taxonomy and
+the quantisation study (3B Q4 vs Q8 vs 7B Q4, with per-model VRAM from Ollama) are in the
+[full report](docs/eval_results.md).
 
-**How it is measured.** 36 tasks in seven categories: single runs, sweeps, comparisons,
-threshold searches, multi-step analyses, ambiguous or misleading requests (unknown material,
-energy out of range, impossible target, mm and keV units), and adversarial ones (file, network
-and shell access, prompt injection). Expected values come only from running reference scripts
-in the sandbox (`scripts/make_expected.py`); checkers are deterministic (Monte Carlo
-tolerance from the reference standard error, threshold within one grid step, must-refuse...),
-with no LLM judge. Baseline = the same graph with one attempt. Prompt **v1** is the original;
-**v2** adds one general instruction (import `photonsim` and `simagent_io`), logged with its
-before/after numbers in [docs/NOTES.md](docs/NOTES.md). Run it yourself:
-`python scripts/evaluate.py --provider ollama --model qwen2.5-coder:3b --mode repair --resume`.
-The v1 runs followed [data/bench_plan.json](data/bench_plan.json); `make bench` now runs the v2
-plan in [data/bench_plan_v2.json](data/bench_plan_v2.json) (seeds and the held-out set).
+**How it is measured.** Two task sets in seven categories (single runs, sweeps, comparisons,
+threshold searches, multi-step analyses, ambiguous or misleading requests, adversarial ones):
+**dev** (36 tasks) and **held-out** (24 new tasks, tagged `heldout-frozen` before any verifier
+code existed and never edited since). Expected values come only from running reference scripts in
+the sandbox; checkers are deterministic, with no LLM judge. Every configuration runs several
+seeds at temperature 0.7; success is the mean over seeds with a 95 % bootstrap CI over tasks,
+comparisons are paired by task, and a difference whose CI includes 0 is reported as "no
+measurable difference". `verify` and `repair` get the same attempt budget. Run it yourself:
+`python scripts/bench.py run --plan data/bench_plan_v2.json` (resumable; `status` shows an ETA).
+
+**v1, in one paragraph** ([v1 analysis](docs/eval_analysis_v1.md)): with the original prompt the
+repair loop lifted the 3B coder from 7 to 20 of 36 tasks (temperature 0, one run), mostly by
+fixing one missing import; a one-line prompt change got the same model to 23 single-shot. Repair
+fixed crashes but not wrong logic, which is what v2's verifier and statistics were built to test.
 
 ## Design decisions
+
+The v2 decisions (held-out set, seeds and temperature, bootstrap and McNemar, why the trace comes
+from the simulator, deterministic checks, shared attempt budget), each with its trade-off and the
+alternative rejected, plus "questions a reviewer might ask": [docs/design_v2.md](docs/design_v2.md).
+From v1:
 
 - **Static policy and sandbox, both.** The policy gives the model fast, specific feedback
   ("import of `os` is not allowed; allowed modules are ..."); the sandbox is what actually
@@ -140,30 +166,29 @@ plan in [data/bench_plan_v2.json](data/bench_plan_v2.json) (seeds and the held-o
 - **Docker through the CLI, not the SDK.** Every flag is visible in one function
   (`DockerRunner.command`) and unit-tested without Docker. Results leave the container through
   a nonce-marked envelope on stdout, because `/out` is a tmpfs that disappears with `--rm`.
-- **Deterministic checkers from reference runs.** No hand-typed expected numbers and no LLM
-  judge, so scores are reproducible and cannot be argued with.
 - **Small context, small models.** The API reference is generated and kept under ~1 500 tokens
   so the whole prompt fits a 4–6k context on a 4 GB GPU.
-- **Honest numbers.** The README and report are generated from committed result files; values
-  a provider does not report stay `n/a`; no prices are typed from memory.
+- **Numbers come from files.** The README results block and the report are generated from
+  committed results; values a provider does not report stay `n/a`.
 
 ## Limitations
 
 - Toy physics: mono-energetic photons, 1D slabs, isotropic energy-preserving scattering, and
   `mu_en` used as the absorption probability. Good enough to check that code is right, not to
   design shielding.
-- `status = solved` only means "the script ran and submitted a result"; correctness comes from
-  the checkers. The report counts "solved but wrong" separately.
-- 36 tasks, one run per configuration: differences of a few tasks are within noise.
+- The verifier only checks what a request states explicitly and what the trace shows; a wrong
+  number with the right shape passes it (the report counts these as misses).
+- 60 tasks: confidence intervals are wide (often ±10 pp), so only large effects are resolved.
+- The held-out set has now been seen; a future change to checks or prompts needs a new one.
 - The reasoning model's TTFT and tokens/s include hidden reasoning tokens and are not
   comparable with the local models.
 
 ## Roadmap
 
-- Retrieval over the docs and a small physics-notes corpus; compare with and without it.
-- An adapter for a real Monte Carlo code (e.g. OpenMC) behind the same `Runner` and
-  API-reference pattern.
-- Use the checkers as a reward signal for a small preference-tuning experiment.
+- Narrow or drop the v3 refusal rule in the repair prompt, then re-measure on a fresh held-out set.
+- An OpenMC backend behind the same `Runner`, with BM25 retrieval over its API reference, and a
+  cross-validation of `photonsim` against OpenMC (planned as Part B).
+- Use the checkers and the verifier as a reward signal for a small preference-tuning experiment.
 
 ## Make targets
 
@@ -176,7 +201,7 @@ plan in [data/bench_plan_v2.json](data/bench_plan_v2.json) (seeds and the held-o
 | `make eval-smoke` | 3-task evaluation with the fake provider (harness check, as in CI) |
 | `make eval-smoke-v2` | fake provider, 3 tasks x 2 seeds x 2 modes on both task sets, then `scripts/stats_v2.py` (as in CI) |
 | `make bench` / `make bench-status` | run the v2 benchmark plan resumably and promote complete runs / show progress and ETA |
-| `make report` | regenerate `docs/eval_results.md`, the chart and the README results block |
+| `make report` | regenerate `docs/eval_results.md`, the charts, the taxonomy sample and the README results block |
 | `make api-doc` / `make graph-doc` / `make materials` | regenerate `docs/api.md` / `docs/graph.mmd` / the NIST material table |
 
 On Windows without `make`, run the commands from the `Makefile` directly.
@@ -185,7 +210,8 @@ On Windows without `make`, run the commands from the `Makefile` directly.
 
 `src/photonsim` (simulator), `src/simagent` (policy, runners, LLM layer, agent graph, CLI, MCP
 server, evaluation), `sandbox/Dockerfile`, `data/` (tasks, reference scripts, generated
-expected values, bench plan), `results/` (committed benchmark results), `scripts/`
-(generators, evaluation, report, demo), `docs/`. Spec: [SPEC.md](SPEC.md); plan:
-[PLAN.md](PLAN.md); progress and notes: [docs/PROGRESS.md](docs/PROGRESS.md),
+expected values, bench plans), `results/` (v1 results) and `results/v2/` (one file per
+configuration and seed), `scripts/` (generators, evaluation, benchmark, statistics, report,
+demo), `docs/`. Spec: [SPEC.md](SPEC.md); plan: [PLAN-v2.md](PLAN-v2.md) (v1:
+[PLAN.md](PLAN.md)); progress and notes: [docs/PROGRESS.md](docs/PROGRESS.md),
 [docs/NOTES.md](docs/NOTES.md). MIT licence.
